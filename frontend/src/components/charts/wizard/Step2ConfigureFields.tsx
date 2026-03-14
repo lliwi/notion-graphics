@@ -5,6 +5,7 @@ import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
 import ColorPaletteSelect from '@/components/ui/ColorPaletteSelect';
 import CustomizationPanel from '@/components/ui/CustomizationPanel';
+import Step2RadarConfig from './Step2RadarConfig';
 import { ChartType, Aggregation, ChartConfig } from '@/types';
 import { useNotionProperties } from '@/hooks/useNotionProperties';
 
@@ -21,6 +22,8 @@ export interface FieldsConfig {
   font_family?: ChartConfig['font_family'];
   show_grid?: boolean;
   border_radius?: number;
+  radar_label_field?: string;
+  radar_axes?: string[];
 }
 
 interface Props {
@@ -96,6 +99,14 @@ export default function Step2ConfigureFields({ databaseId, config, onChange }: P
           <Spinner className="w-4 h-4" />
           Cargando campos de Notion...
         </div>
+      ) : config.type === 'radar' ? (
+        <Step2RadarConfig
+          fieldOptions={fieldOptions}
+          labelField={config.radar_label_field ?? ''}
+          axes={config.radar_axes ?? []}
+          onLabelFieldChange={(v) => onChange({ ...config, radar_label_field: v })}
+          onAxesChange={(v) => onChange({ ...config, radar_axes: v })}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-4">
           <Select
@@ -113,12 +124,14 @@ export default function Step2ConfigureFields({ databaseId, config, onChange }: P
         </div>
       )}
 
-      <Select
-        label="Agregación"
-        value={config.aggregation}
-        onChange={set('aggregation')}
-        options={AGGREGATION_OPTIONS}
-      />
+      {config.type !== 'radar' && (
+        <Select
+          label="Agregación"
+          value={config.aggregation}
+          onChange={set('aggregation')}
+          options={AGGREGATION_OPTIONS}
+        />
+      )}
       <ColorPaletteSelect
         value={config.colors}
         onChange={(v) => onChange({ ...config, colors: v })}
@@ -126,8 +139,16 @@ export default function Step2ConfigureFields({ databaseId, config, onChange }: P
 
       <div className="border-t border-border pt-4">
         <CustomizationPanel
-          config={config}
-          onChange={(patch) => onChange({ ...config, ...patch })}
+          config={{
+            legend_position: config.legend_position,
+            background: config.background,
+            font_family: config.font_family,
+            show_grid: config.show_grid,
+            border_radius: config.border_radius,
+          }}
+          onChange={({ colors: _colors, database_id: _db, filters: _f, ...rest }) =>
+            onChange({ ...config, ...rest })
+          }
         />
       </div>
     </div>

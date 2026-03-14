@@ -41,7 +41,9 @@ export default function Step3Preview({ chartType, config, data, loading, error }
         <ChartPreview type={chartType} data={data} config={config} />
       </div>
       <p className="text-xs text-text-muted text-center font-mono">
-        {data.labels.length} registros · vista previa
+        {chartType === 'radar'
+          ? `${data.datasets.length} series · ${data.labels.length} ejes · vista previa`
+          : `${data.labels.length} registros · vista previa`}
       </p>
     </div>
   );

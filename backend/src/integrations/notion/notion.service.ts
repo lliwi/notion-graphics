@@ -7,12 +7,14 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Client } from '@notionhq/client';
 import { NotionIntegration } from './entities/notion-integration.entity';
+import { UsersService } from '../../users/users.service';
 
 interface NotionOAuthState {
   sub: string;
-  userId: string;
+  userId?: string;
   iat: number;
   exp: number;
 }
@@ -22,9 +24,27 @@ export class NotionService {
   constructor(
     private readonly config: ConfigService,
     private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
     @InjectRepository(NotionIntegration)
     private readonly integrationRepo: Repository<NotionIntegration>,
   ) {}
+
+  getLoginUrl(): string {
+    const state = this.jwtService.sign(
+      { sub: 'notion_login_state' },
+      { expiresIn: '10m' },
+    );
+
+    const params = new URLSearchParams({
+      client_id: this.config.get<string>('NOTION_CLIENT_ID')!,
+      redirect_uri: this.config.get<string>('NOTION_REDIRECT_URI')!,
+      response_type: 'code',
+      owner: 'user',
+      state,
+    });
+
+    return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`;
+  }
 
   getOAuthUrl(userId: string): string {
     const state = this.jwtService.sign(
@@ -52,6 +72,10 @@ export class NotionService {
       payload = this.jwtService.verify<NotionOAuthState>(state);
     } catch {
       throw new UnauthorizedException('Invalid or expired OAuth state');
+    }
+
+    if (payload.sub === 'notion_login_state') {
+      return this.handleLoginCallback(code);
     }
 
     if (payload.sub !== 'notion_oauth_state') {
@@ -102,8 +126,67 @@ export class NotionService {
       { conflictPaths: ['user_id'] },
     );
 
-    const appBaseUrl = this.config.get<string>('APP_BASE_URL')!;
+    const appBaseUrl = this.config.get<string>('APP_BASE_URL', 'http://localhost:3001').split(',')[0].trim();
     return { redirectUrl: `${appBaseUrl}/dashboard` };
+  }
+
+  private async handleLoginCallback(code: string): Promise<{ redirectUrl: string }> {
+    const clientId = this.config.get<string>('NOTION_CLIENT_ID')!;
+    const clientSecret = this.config.get<string>('NOTION_CLIENT_SECRET')!;
+    const redirectUri = this.config.get<string>('NOTION_REDIRECT_URI')!;
+    const appBaseUrl = this.config.get<string>('APP_BASE_URL', 'http://localhost:3001').split(',')[0].trim();
+
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+    const response = await fetch('https://api.notion.com/v1/oauth/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new BadRequestException(`Notion OAuth failed: ${error}`);
+    }
+
+    const data = (await response.json()) as any;
+
+    const email = data.owner?.user?.person?.email as string | undefined;
+    const name = data.owner?.user?.name as string | undefined;
+
+    if (!email) {
+      throw new BadRequestException('No se pudo obtener el email de tu cuenta de Notion');
+    }
+
+    let user = await this.usersService.findByEmail(email);
+    if (!user) {
+      const password_hash = await bcrypt.hash(Math.random().toString(36), 12);
+      user = await this.usersService.create({ name: name ?? null, email, password_hash });
+    }
+
+    if (user.status === 'BANNED') {
+      throw new BadRequestException('Tu cuenta ha sido bloqueada');
+    }
+    if (user.status === 'INACTIVE') {
+      throw new BadRequestException('Tu cuenta está desactivada');
+    }
+
+    await this.integrationRepo.upsert(
+      {
+        user_id: user.id,
+        access_token: data.access_token,
+        workspace_id: data.workspace_id ?? null,
+        workspace_name: data.workspace_name ?? null,
+        bot_id: data.bot_id ?? null,
+      },
+      { conflictPaths: ['user_id'] },
+    );
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role });
+    return { redirectUrl: `${appBaseUrl}/auth/callback?token=${token}` };
   }
 
   async getDatabases(userId: string) {

@@ -80,7 +80,11 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
+    html {
+      color-scheme: light;
+      background: ${bg};
+    }
+    body {
       width: 100%; height: 100%;
       background: ${bg};
       overflow: hidden;
@@ -114,6 +118,18 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
 </div>
 <script>
   const ctx = document.getElementById('chart');
+  // Make canvas background transparent
+  Chart.register({
+    id: 'transparentBg',
+    beforeDraw(chart) {
+      const ctx2 = chart.canvas.getContext('2d');
+      ctx2.save();
+      ctx2.globalCompositeOperation = 'destination-over';
+      ctx2.fillStyle = 'transparent';
+      ctx2.fillRect(0, 0, chart.canvas.width, chart.canvas.height);
+      ctx2.restore();
+    }
+  });
   new Chart(ctx, {
     type: ${JSON.stringify(chartJsType)},
     data: {

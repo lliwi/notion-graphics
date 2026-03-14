@@ -34,6 +34,8 @@ export interface ChartConfig {
   font_family?: 'system-ui' | 'serif' | 'monospace';
   show_grid?: boolean;
   border_radius?: number;
+  radar_label_field?: string;
+  radar_axes?: string[];
 }
 
 @Entity('charts')

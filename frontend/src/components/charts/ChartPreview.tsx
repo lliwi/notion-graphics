@@ -25,8 +25,10 @@ function buildDataset(data: ChartDataResult, config: ChartConfig, type: ChartTyp
     datasets: data.datasets.map((ds, i) => ({
       label: ds.label,
       data: ds.data,
-      backgroundColor: isPolar || isRadar
+      backgroundColor: isPolar
         ? colors
+        : isRadar
+        ? colors[i % colors.length] + '33'
         : colors.map((c) => c + '33'),
       borderColor: isPolar ? '#ffffff44' : colors[i % colors.length],
       borderWidth: 2,
@@ -108,6 +110,17 @@ export default function ChartPreview({ type, data, config }: Props) {
 
   const withScales = { ...OPTIONS_BASE, scales: DARK_SCALES };
   const withHBarScales = { ...OPTIONS_BASE, scales: DARK_SCALES_HBAR };
+  const withRadarScales = {
+    ...OPTIONS_BASE,
+    scales: {
+      r: {
+        ticks: { color: '#8A8F9A', backdropColor: 'transparent', font: { size: 10 } },
+        grid: { color: gridColor },
+        angleLines: { color: gridColor },
+        pointLabels: { color: '#F0EBE1', font: { size: 11 } },
+      },
+    },
+  };
 
   return (
     <div className="relative h-full w-full">
@@ -117,7 +130,7 @@ export default function ChartPreview({ type, data, config }: Props) {
       {type === 'area' && <Line data={chartData} options={withScales} />}
       {type === 'pie' && <Pie data={chartData} options={OPTIONS_BASE} />}
       {type === 'donut' && <Doughnut data={chartData} options={OPTIONS_BASE} />}
-      {type === 'radar' && <Radar data={chartData} options={OPTIONS_BASE} />}
+      {type === 'radar' && <Radar data={chartData} options={withRadarScales} />}
     </div>
   );
 }

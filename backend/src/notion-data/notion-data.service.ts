@@ -29,10 +29,7 @@ export class NotionDataService {
 
   async queryDatabase(
     accessToken: string,
-    config: Pick<
-      ChartConfig,
-      'database_id' | 'x_field' | 'y_field' | 'aggregation'
-    >,
+    config: ChartConfig,
   ): Promise<ChartDataResult> {
     const notion = new Client({ auth: accessToken });
 
@@ -51,15 +48,42 @@ export class NotionDataService {
         : undefined;
     } while (cursor);
 
+    if (config.radar_label_field && config.radar_axes?.length) {
+      return this.buildRadarResult(allResults, config);
+    }
+
     const rows = allResults
       .filter((r: any) => r.object === 'page')
       .map((page: any) => ({
-        x: this.extractValue(page.properties[config.x_field]),
-        y: this.extractValue(page.properties[config.y_field]),
+        x: this.extractValue(page.properties[config.x_field ?? '']),
+        y: this.extractValue(page.properties[config.y_field ?? '']),
       }))
       .filter((row) => row.x !== null);
 
     return this.aggregate(rows, config.aggregation);
+  }
+
+  private buildRadarResult(
+    allResults: any[],
+    config: ChartConfig,
+  ): ChartDataResult {
+    const axes = config.radar_axes!;
+    const labelField = config.radar_label_field!;
+
+    const datasets = allResults
+      .filter((r: any) => r.object === 'page')
+      .map((page: any) => {
+        const seriesName = String(
+          this.extractValue(page.properties[labelField]) ?? 'Unknown',
+        );
+        const values = axes.map((axis) =>
+          Number(this.extractValue(page.properties[axis]) ?? 0),
+        );
+        return { label: seriesName, data: values };
+      })
+      .filter((ds) => ds.label !== '' && ds.label !== 'Unknown');
+
+    return { labels: axes, datasets };
   }
 
   private extractValue(prop: any): string | number | null {

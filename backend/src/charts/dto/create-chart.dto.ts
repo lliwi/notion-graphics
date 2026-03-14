@@ -25,15 +25,15 @@ class ChartConfigDto {
   @MaxLength(255)
   title: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(100)
-  x_field: string;
+  x_field?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(100)
-  y_field: string;
+  y_field?: string;
 
   @IsIn(['sum', 'count', 'avg', 'none'])
   aggregation: 'sum' | 'count' | 'avg' | 'none';
@@ -69,6 +69,17 @@ class ChartConfigDto {
   @Min(0)
   @Max(20)
   border_radius?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  radar_label_field?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  radar_axes?: string[];
 }
 
 export class CreateChartDto {

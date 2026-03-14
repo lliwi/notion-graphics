@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -42,6 +43,13 @@ export class AuthService {
     const isMatch = await bcrypt.compare(dto.password, user.password_hash);
     if (!isMatch) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.status === 'BANNED') {
+      throw new ForbiddenException('Tu cuenta ha sido bloqueada');
+    }
+    if (user.status === 'INACTIVE') {
+      throw new ForbiddenException('Tu cuenta está desactivada');
     }
 
     return { access_token: this.generateToken(user) };

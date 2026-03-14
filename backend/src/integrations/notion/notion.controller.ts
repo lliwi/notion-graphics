@@ -17,6 +17,12 @@ import { NotionService } from './notion.service';
 export class NotionController {
   constructor(private readonly notionService: NotionService) {}
 
+  @Get('login')
+  login(@Res() res: Response) {
+    const url = this.notionService.getLoginUrl();
+    return res.redirect(url);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('connect')
   connect(@CurrentUser() user: RequestUser, @Res() res: Response) {

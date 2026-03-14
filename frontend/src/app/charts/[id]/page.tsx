@@ -37,7 +37,7 @@ const AGGREGATION_OPTIONS = [
   { value: 'avg', label: 'Media' },
 ];
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+const EMBED_BASE_URL = process.env.NEXT_PUBLIC_EMBED_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 function ChartDetailContent({ id }: { id: string }) {
   const router = useRouter();
@@ -160,7 +160,7 @@ function ChartDetailContent({ id }: { id: string }) {
 
           {chart.published && chart.embed_token && (
             <div className="bg-surface-2 border border-border rounded-lg p-4">
-              <EmbedCodeBox embedToken={chart.embed_token} backendUrl={BACKEND_URL} />
+              <EmbedCodeBox embedToken={chart.embed_token} backendUrl={EMBED_BASE_URL} />
             </div>
           )}
         </div>

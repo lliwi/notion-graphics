@@ -5,13 +5,23 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 interface AuthContextValue {
   token: string | null;
   isAuthenticated: boolean;
+  role: string | null;
   login: (token: string) => void;
   logout: () => void;
+}
+
+function decodeRole(token: string): string | null {
+  try {
+    return JSON.parse(atob(token.split('.')[1]))?.role ?? null;
+  } catch {
+    return null;
+  }
 }
 
 const AuthContext = createContext<AuthContextValue>({
   token: null,
   isAuthenticated: false,
+  role: null,
   login: () => {},
   logout: () => {},
 });
@@ -42,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (!ready) return null;
 
   return (
-    <AuthContext.Provider value={{ token, isAuthenticated: !!token, login, logout }}>
+    <AuthContext.Provider value={{ token, isAuthenticated: !!token, role: token ? decodeRole(token) : null, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

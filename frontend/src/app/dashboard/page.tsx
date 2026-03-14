@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 function DashboardContent() {
   const { charts, loading: chartsLoading } = useCharts();
   const { connected, loading: notionLoading } = useNotionDatabases();
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -30,6 +30,14 @@ function DashboardContent() {
           <Link href="/charts/new">
             <Button size="sm">+ Nuevo gráfico</Button>
           </Link>
+          <Link href="/profile">
+            <Button variant="ghost" size="sm">Perfil</Button>
+          </Link>
+          {role === 'ADMIN' && (
+            <Link href="/admin/users">
+              <Button variant="ghost" size="sm">Usuarios</Button>
+            </Link>
+          )}
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             Salir
           </Button>

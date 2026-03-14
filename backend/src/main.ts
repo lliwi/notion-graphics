@@ -15,8 +15,16 @@ async function bootstrap() {
   );
 
   const config = app.get(ConfigService);
+  const appBaseUrl = config.get<string>('APP_BASE_URL', 'http://localhost:3001');
+  const allowedOrigins = appBaseUrl.split(',').map((o) => o.trim());
   app.enableCors({
-    origin: config.get<string>('APP_BASE_URL', 'http://localhost:3001'),
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
   });
   const port = config.get<number>('PORT', 3000);

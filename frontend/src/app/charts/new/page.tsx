@@ -42,7 +42,12 @@ function NewChartContent() {
   };
 
   const goToStep3 = async () => {
-    if (!fields.name || !fields.x_field) return;
+    const isRadar = fields.type === 'radar';
+    if (isRadar) {
+      if (!fields.name || !fields.radar_label_field || (fields.radar_axes?.length ?? 0) < 3) return;
+    } else {
+      if (!fields.name || !fields.x_field) return;
+    }
     setStep(3);
     setPreviewLoading(true);
     setPreviewError('');
@@ -56,8 +61,8 @@ function NewChartContent() {
         config_json: {
           database_id: databaseId,
           title: fields.title || fields.name,
-          x_field: fields.x_field,
-          y_field: fields.y_field,
+          x_field: fields.x_field ?? '',
+          y_field: fields.y_field ?? '',
           aggregation: fields.aggregation,
           filters: [],
           colors,
@@ -66,6 +71,8 @@ function NewChartContent() {
           font_family: fields.font_family,
           show_grid: fields.show_grid,
           border_radius: fields.border_radius,
+          radar_label_field: fields.radar_label_field,
+          radar_axes: fields.radar_axes,
         } satisfies ChartConfig,
       });
       setChartId(chart.id);
@@ -87,8 +94,8 @@ function NewChartContent() {
   const currentConfig: ChartConfig = {
     database_id: databaseId,
     title: fields.title || fields.name,
-    x_field: fields.x_field,
-    y_field: fields.y_field,
+    x_field: fields.x_field ?? '',
+    y_field: fields.y_field ?? '',
     aggregation: fields.aggregation,
     filters: [],
     colors: fields.colors ? fields.colors.split(',').map((c) => c.trim()).filter(Boolean) : [],
@@ -97,6 +104,8 @@ function NewChartContent() {
     font_family: fields.font_family,
     show_grid: fields.show_grid,
     border_radius: fields.border_radius,
+    radar_label_field: fields.radar_label_field,
+    radar_axes: fields.radar_axes,
   };
 
   return (
@@ -158,7 +167,11 @@ function NewChartContent() {
                 <Button variant="secondary" onClick={() => setStep(1)}>
                   ← Atrás
                 </Button>
-                <Button onClick={goToStep3} disabled={!fields.name || !fields.x_field}>
+                <Button onClick={goToStep3} disabled={
+                  fields.type === 'radar'
+                    ? !fields.name || !fields.radar_label_field || (fields.radar_axes?.length ?? 0) < 3
+                    : !fields.name || !fields.x_field
+                }>
                   Vista previa →
                 </Button>
               </div>
