@@ -11,7 +11,7 @@ interface Props {
 export default function EmbedCodeBox({ embedToken, backendUrl }: Props) {
   const [copied, setCopied] = useState(false);
   const embedUrl = `${backendUrl}/embed/${embedToken}`;
-  const iframeCode = `<iframe src="${embedUrl}" width="600" height="400" frameborder="0"></iframe>`;
+  const iframeCode = `<iframe src="${embedUrl}" width="600" height="400" frameborder="0" allowtransparency="true" style="background: transparent; border: none;"></iframe>`;
 
   const copy = async () => {
     await navigator.clipboard.writeText(iframeCode);

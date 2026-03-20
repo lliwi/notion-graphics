@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { NotionModule } from './integrations/notion/notion.module';
 import { ChartsModule } from './charts/charts.module';
 import { EmbedModule } from './embed/embed.module';
+import { NotionLPModule } from './notion-lp/notion-lp.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
@@ -36,6 +37,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     NotionModule,
     ChartsModule,
     EmbedModule,
+    NotionLPModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

@@ -5,17 +5,19 @@ interface EmbedOptions {
   chartType: ChartType;
   config: ChartConfig;
   chartData: ChartDataResult;
+  oembedUrl?: string;
+  title?: string;
 }
 
 export function generateEmbedHtml(opts: EmbedOptions): string {
-  const { chartType, config, chartData } = opts;
-  const title = config.title || 'Chart';
+  const { chartType, config, chartData, oembedUrl, title: chartTitle } = opts;
+  const title = config.title || chartTitle || 'Chart';
   const colors =
     config.colors?.length > 0
       ? config.colors
       : ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-  const bg = config.background ?? 'transparent';
+  const bg = config.background ?? '#1e2028';
   const fontFamily = config.font_family ?? 'system-ui';
   const legendPos = config.legend_position ?? 'bottom';
   const showGrid = config.show_grid !== false; // default true
@@ -54,18 +56,29 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
 
   const indexAxisOption = isHBar ? `indexAxis: 'y',` : '';
 
-  const gridColor = showGrid ? '#f3f4f6' : 'transparent';
+  const gridColor = showGrid ? '#2a3040' : 'transparent';
+  const tickColor = '#8a8f9a';
+  const legendColor = '#d1d5db';
 
-  const scalesConfigFull = isPolar || isRadar
+  const scalesConfigFull = isRadar
+    ? `scales: {
+        r: {
+          ticks: { color: '${tickColor}', backdropColor: 'transparent', font: { size: 10 } },
+          grid: { color: '${gridColor}' },
+          angleLines: { color: '${gridColor}' },
+          pointLabels: { color: '${legendColor}', font: { size: 11 } },
+        },
+      },`
+    : isPolar
     ? ''
     : isHBar
     ? `scales: {
-        x: { grid: { color: '${gridColor}' }, beginAtZero: true, ticks: { font: { size: 11 } } },
-        y: { grid: { color: '${gridColor}' }, ticks: { font: { size: 11 } } },
+        x: { grid: { color: '${gridColor}' }, beginAtZero: true, ticks: { color: '${tickColor}', font: { size: 11 } } },
+        y: { grid: { color: '${gridColor}' }, ticks: { color: '${tickColor}', font: { size: 11 } } },
       },`
     : `scales: {
-        x: { grid: { color: '${gridColor}' }, ticks: { font: { size: 11 } } },
-        y: { grid: { color: '${gridColor}' }, ticks: { font: { size: 11 } }, beginAtZero: true },
+        x: { grid: { color: '${gridColor}' }, ticks: { color: '${tickColor}', font: { size: 11 } } },
+        y: { grid: { color: '${gridColor}' }, ticks: { color: '${tickColor}', font: { size: 11 } }, beginAtZero: true },
       },`;
 
   const legendDisplay = isPolar || isRadar || legendPos !== 'none';
@@ -77,11 +90,12 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${esc(title)}</title>
+  ${oembedUrl ? `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${esc(title)}">` : ''}
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html {
-      color-scheme: light;
+      color-scheme: dark;
       background: ${bg};
     }
     body {
@@ -99,7 +113,7 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
     h2 {
       font-size: 13px;
       font-weight: 600;
-      color: #374151;
+      color: #e5e7eb;
       margin-bottom: 10px;
       white-space: nowrap;
       overflow: hidden;
@@ -144,7 +158,7 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
         legend: {
           display: ${legendDisplay},
           position: '${legendPosition}',
-          labels: { font: { size: 11 }, padding: 12 },
+          labels: { color: '${legendColor}', font: { size: 11 }, padding: 12 },
         },
         tooltip: { enabled: true },
       },
@@ -171,6 +185,7 @@ function tableHtml(title: string, data: ChartDataResult, bg: string, fontFamily:
   <title>${esc(title)}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { color-scheme: dark; }
     html, body {
       width: 100%; height: 100%;
       background: ${bg};
@@ -179,11 +194,12 @@ function tableHtml(title: string, data: ChartDataResult, bg: string, fontFamily:
       font-size: 13px;
     }
     .wrapper { padding: 14px; }
-    h2 { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+    h2 { font-size: 13px; font-weight: 600; color: #e5e7eb; margin-bottom: 10px; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-    th { background: #f9fafb; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
-    tbody tr:hover td { background: #f9fafb; }
+    th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #2a3040; }
+    th { background: #252830; font-weight: 600; color: #8a8f9a; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    td { color: #d1d5db; }
+    tbody tr:hover td { background: #252830; }
   </style>
 </head>
 <body>
@@ -214,6 +230,7 @@ function kpiHtml(title: string, data: ChartDataResult, bg: string, fontFamily: s
   <title>${esc(title)}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { color-scheme: dark; }
     html, body {
       width: 100%; height: 100%;
       background: ${bg};
@@ -224,8 +241,8 @@ function kpiHtml(title: string, data: ChartDataResult, bg: string, fontFamily: s
       justify-content: center;
     }
     .card { text-align: center; padding: 16px; }
-    .label { font-size: 11px; font-weight: 600; color: #6b7280; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
-    .value { font-size: clamp(32px, 8vw, 64px); font-weight: 700; color: #111827; line-height: 1; }
+    .label { font-size: 11px; font-weight: 600; color: #8a8f9a; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+    .value { font-size: clamp(32px, 8vw, 64px); font-weight: 700; color: #e5e7eb; line-height: 1; }
   </style>
 </head>
 <body>

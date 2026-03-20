@@ -11,8 +11,12 @@ CMD ["npm", "run", "dev"]
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY . .
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_EMBED_BASE_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_EMBED_BASE_URL=$NEXT_PUBLIC_EMBED_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -27,4 +31,4 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 EXPOSE 3001
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 node server.js"]
