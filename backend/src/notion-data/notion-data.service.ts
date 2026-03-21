@@ -60,7 +60,7 @@ export class NotionDataService {
       }))
       .filter((row) => row.x !== null);
 
-    return this.aggregate(rows, config.aggregation);
+    return this.aggregate(rows, config.aggregation, config.y_field);
   }
 
   private buildRadarResult(
@@ -115,11 +115,12 @@ export class NotionDataService {
   private aggregate(
     rows: Array<{ x: string | number | null; y: string | number | null }>,
     aggregation: 'sum' | 'count' | 'avg' | 'none',
+    yField = 'Value',
   ): ChartDataResult {
     if (aggregation === 'none') {
       return {
         labels: rows.map((r) => String(r.x ?? '')),
-        datasets: [{ label: 'Value', data: rows.map((r) => Number(r.y ?? 0)) }],
+        datasets: [{ label: yField, data: rows.map((r) => Number(r.y ?? 0)) }],
       };
     }
 
@@ -149,6 +150,6 @@ export class NotionDataService {
       }
     }
 
-    return { labels, datasets: [{ label: 'Value', data }] };
+    return { labels, datasets: [{ label: yField, data }] };
   }
 }

@@ -71,6 +71,24 @@ class ChartConfigDto {
   border_radius?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(8)
+  @Max(24)
+  font_size?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(150)
+  @Max(800)
+  chart_height?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(10)
+  @Max(100)
+  bar_width?: number;
+
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   radar_label_field?: string;

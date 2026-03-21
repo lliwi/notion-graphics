@@ -67,6 +67,14 @@ export class ChartsController {
     return this.chartsService.publish(id, user.userId);
   }
 
+  @Post(':id/unpublish')
+  unpublish(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.chartsService.unpublish(id, user.userId);
+  }
+
   @Get(':id/data')
   getData(
     @CurrentUser() user: RequestUser,

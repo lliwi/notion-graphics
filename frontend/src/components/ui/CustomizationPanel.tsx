@@ -1,10 +1,11 @@
 'use client';
 
-import { ChartConfig } from '@/types';
+import { ChartConfig, ChartType } from '@/types';
 
 interface Props {
   config: Partial<ChartConfig>;
   onChange: (patch: Partial<ChartConfig>) => void;
+  type?: ChartType;
 }
 
 const LEGEND_OPTIONS = [
@@ -29,7 +30,8 @@ const BG_PRESETS = [
   { value: 'custom', label: 'Personalizado' },
 ];
 
-export default function CustomizationPanel({ config, onChange }: Props) {
+export default function CustomizationPanel({ config, onChange, type }: Props) {
+  const isBar = type === 'bar' || type === 'bar_horizontal';
   const bg = config.background ?? 'transparent';
   const isCustomBg = !BG_PRESETS.slice(0, -1).some((p) => p.value === bg);
 
@@ -43,6 +45,7 @@ export default function CustomizationPanel({ config, onChange }: Props) {
       <p className="text-xs text-text-muted uppercase tracking-wider font-mono font-semibold">
         Personalización
       </p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-4">
 
       {/* Background */}
       <div className="flex flex-col gap-1">
@@ -159,6 +162,57 @@ export default function CustomizationPanel({ config, onChange }: Props) {
           onChange={(e) => onChange({ border_radius: Number(e.target.value) })}
           className="w-full accent-accent"
         />
+      </div>
+
+      {/* Font size */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-text-muted uppercase tracking-wider font-mono">
+          Tamaño de fuente: {config.font_size ?? 11}px
+        </label>
+        <input
+          type="range"
+          min={8}
+          max={24}
+          value={config.font_size ?? 11}
+          onChange={(e) => onChange({ font_size: Number(e.target.value) })}
+          className="w-full accent-accent"
+        />
+      </div>
+
+      {/* Bar width */}
+      {isBar && (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-text-muted uppercase tracking-wider font-mono">
+              Ancho de barras: {config.bar_width ?? 80}%
+            </label>
+            <input
+              type="range"
+              min={10}
+              max={100}
+              value={config.bar_width ?? 80}
+              onChange={(e) => onChange({ bar_width: Number(e.target.value) })}
+              className="w-full accent-accent"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Chart height */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-text-muted uppercase tracking-wider font-mono">
+          Altura del gráfico: {config.chart_height ?? 300}px
+        </label>
+        <input
+          type="range"
+          min={150}
+          max={800}
+          step={10}
+          value={config.chart_height ?? 300}
+          onChange={(e) => onChange({ chart_height: Number(e.target.value) })}
+          className="w-full accent-accent"
+        />
+      </div>
       </div>
     </div>
   );

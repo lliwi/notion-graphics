@@ -1,384 +1,320 @@
-# Notion Charts Service
+# Notion Graphics
+
+Plataforma web para generar gráficos embebibles a partir de bases de datos de Notion. Los usuarios conectan su cuenta de Notion, seleccionan una base de datos, configuran el gráfico visualmente y obtienen un enlace iframe listo para insertar en cualquier página de Notion.
+
+---
+
+## Índice
+
+1. [Arquitectura](#arquitectura)
+2. [Stack tecnológico](#stack-tecnológico)
+3. [Estructura del proyecto](#estructura-del-proyecto)
+4. [Variables de entorno](#variables-de-entorno)
+5. [Desarrollo local](#desarrollo-local)
+6. [Despliegue en producción](#despliegue-en-producción)
+7. [Integración con Notion](#integración-con-notion)
+8. [API](#api)
+9. [Tipos de gráfico y configuración](#tipos-de-gráfico-y-configuración)
+
+---
+
+## Arquitectura
+
+```
+Browser → Next.js (frontend :3001)
+             │  /api/* proxy
+             ▼
+         NestJS (backend :3000)
+             │
+        ┌────┴────┐
+        │         │
+   PostgreSQL   Notion API
+```
+
+El frontend actúa como proxy: las llamadas del browser a `/api/*` se reescriben internamente hacia el backend (`http://backend:3000`). Así solo se expone un único dominio hacia el exterior y se evitan problemas de CORS.
+
+---
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|------|-----------|
+| Frontend | Next.js 15, TailwindCSS, Chart.js, react-chartjs-2 |
+| Backend | NestJS, TypeORM, class-validator |
+| Base de datos | PostgreSQL 16 |
+| Auth | JWT (Bearer token), bcrypt |
+| Notion | OAuth 2.0, `@notionhq/client` v5 |
+| Infra | Docker Compose, Cloudflare Tunnel |
+
+---
+
+## Estructura del proyecto
+
+```
+notion-graphics/
+├── frontend/               # Next.js app
+│   ├── src/
+│   │   ├── app/            # Rutas (dashboard, charts/[id], login, register)
+│   │   ├── components/     # ChartPreview, CustomizationPanel, EmbedCodeBox...
+│   │   ├── hooks/          # useChart, useChartData, useNotionProperties
+│   │   ├── lib/            # api.ts (axios), chartjs.ts
+│   │   └── types/          # index.ts — ChartConfig, Chart, ChartType...
+│   ├── next.config.ts      # Rewrites /api/* → backend, /embed/*, /notion-lp/*
+│   └── Dockerfile
+├── backend/
+│   └── src/
+│       ├── auth/           # Register, login, JWT strategy
+│       ├── charts/         # CRUD, publish/unpublish, data endpoint
+│       ├── embed/          # GET /embed/:token — render iframe sin auth
+│       ├── integrations/
+│       │   └── notion/     # OAuth flow, listado de DBs
+│       ├── notion-data/    # QueryDatabase + agregaciones
+│       ├── users/          # Entidad User
+│       ├── database/       # TypeORM DataSource + migraciones
+│       └── main.ts         # Bootstrap, CORS, ValidationPipe
+├── docker-compose.yml      # Entorno de desarrollo
+├── docker-compose.prod.yml # Entorno de producción
+├── .env                    # Variables de entorno (no en git)
+└── .env.example
+```
 
-Servicio web para generar gráficos a partir de bases de datos de Notion
-y mostrarlos embebidos dentro de páginas de Notion mediante enlaces
-embebibles.
+---
 
-------------------------------------------------------------------------
+## Variables de entorno
 
-# Tabla de contenidos
+Copia `.env.example` como `.env` y rellena los valores:
 
-1.  Introducción\
-2.  Objetivo del proyecto\
-3.  Alcance\
-4.  Arquitectura del sistema\
-5.  Tecnologías sugeridas\
-6.  Funcionalidades principales\
-7.  Gestión de usuarios\
-8.  Integración con Notion\
-9.  Sistema de gráficos\
-10. Galería de gráficos\
-11. Sistema de enlaces embebibles\
-12. API del sistema\
-13. Modelo de datos\
-14. Seguridad\
-15. Requerimientos no funcionales\
-16. Despliegue con Docker Compose\
-17. Variables de entorno\
-18. Flujo funcional principal\
-19. Roadmap de desarrollo\
-20. Criterios de aceptación
+```env
+# PostgreSQL
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=charts
 
-------------------------------------------------------------------------
+# Backend
+DATABASE_URL=postgres://user:password@postgres:5432/charts
+JWT_SECRET=mínimo_32_caracteres
+JWT_EXPIRES_IN=7d
+PORT=3000
 
-# 1. Introducción
+# Notion OAuth — integración de login de usuario (sin Link Preview)
+NOTION_CLIENT_ID=
+NOTION_CLIENT_SECRET=
+NOTION_REDIRECT_URI=https://tu-dominio.com/api/integrations/notion/callback
 
-Notion Charts Service es una plataforma que permite generar
-visualizaciones de datos basadas en bases de datos de Notion.
+# URLs
+APP_BASE_URL=https://tu-dominio.com,http://localhost:3001
+NEXT_PUBLIC_API_URL=/api
+NEXT_PUBLIC_EMBED_BASE_URL=https://tu-dominio.com
+EMBED_BASE_URL=https://tu-dominio.com
 
-El sistema permite:
+# Notion LP (integración Link Preview / oEmbed — separada del login)
+NOTION_LP_CLIENT_ID=
+NOTION_LP_CLIENT_SECRET=
+```
 
--   conectar cuentas de Notion
--   seleccionar bases de datos
--   configurar gráficos de forma visual
--   generar enlaces embebibles
--   insertar dichos enlaces en páginas de Notion para visualizar los
-    gráficos en tiempo real.
+> **Importante:** `NOTION_CLIENT_ID` debe ser una integración pública de Notion **sin** "Vista previa del enlace" activada. Si la misma integración tiene external auth configurado, Notion devuelve `invalid_grant: Please provide external_account info` al intentar el login.
 
-Los gráficos se renderizan mediante una página optimizada para **embeds
-/ iframe** compatible con Notion.
+---
 
-------------------------------------------------------------------------
+## Desarrollo local
 
-# 2. Objetivo del proyecto
+Requiere Docker y Docker Compose.
 
-Desarrollar una plataforma que permita a usuarios crear gráficos a
-partir de datos almacenados en Notion sin necesidad de herramientas
-externas de BI.
+```bash
+# 1. Clonar y configurar entorno
+cp .env.example .env
+# editar .env con tus credenciales
 
-Objetivos:
+# 2. Levantar servicios (hot-reload activo)
+docker compose up
 
--   simplificar la visualización de datos de Notion
--   generar gráficos fácilmente embebibles
--   ofrecer una interfaz visual para configurar gráficos
--   permitir reutilizar gráficos en múltiples páginas de Notion
+# 3. Ver logs del backend
+docker logs notion_charts_backend -f
 
-------------------------------------------------------------------------
+# 4. Ver logs del frontend
+docker logs notion_charts_frontend -f
+```
 
-# 3. Alcance
+El backend corre migraciones automáticamente al arrancar. Accede en:
 
-El sistema incluye:
+- Frontend: http://localhost:3001
+- Backend: http://localhost:3000
 
--   autenticación y gestión de usuarios
--   integración con Notion mediante API oficial
--   acceso a bases de datos autorizadas
--   configuración visual de gráficos
--   generación de enlaces embebibles
--   galería de gráficos
--   despliegue mediante Docker Compose
+### Comandos útiles en desarrollo
 
-------------------------------------------------------------------------
+```bash
+# Generar una nueva migración (con la DB activa)
+docker exec notion_charts_backend npm run migration:generate -- src/database/migrations/NombreMigracion
 
-# 4. Arquitectura del sistema
+# Aplicar migraciones manualmente
+docker exec notion_charts_backend npm run migration:run
 
-Arquitectura de tres capas:
+# Instalar un paquete en el backend
+docker run --rm -v "$(pwd)/backend":/app -w /app node:20-alpine sh -c \
+  "npm install <paquete> && chown -R $(id -u):$(id -g) /app"
 
-Frontend → Backend API → Base de Datos
+# Instalar un paquete en el frontend
+docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine sh -c \
+  "npm install <paquete> && chown -R $(id -u):$(id -g) /app"
+```
 
-Componentes principales:
+> Los archivos creados dentro de Docker pertenecen a root. El `chown` al final corrige los permisos para el usuario del host.
 
--   Frontend (React / Next.js)
--   Backend API (Node.js / NestJS)
--   PostgreSQL
--   Redis (opcional para caché)
+---
 
-------------------------------------------------------------------------
+## Despliegue en producción
 
-# 5. Tecnologías sugeridas
+### Requisitos
 
-## Frontend
+- Docker y Docker Compose en el servidor
+- Cloudflare Tunnel (`cloudflared`) configurado para exponer el frontend
+- `.env` con valores de producción
 
--   React / Next.js
--   TailwindCSS
--   Chart.js / ECharts / Recharts
+### Configuración de red
 
-## Backend
+El `docker-compose.prod.yml` usa una red macvlan externa (`int-lan`) que asigna una IP fija al contenedor del frontend (`192.168.0.29`). Cloudflare Tunnel apunta a esa IP en el puerto `3001`.
 
--   Node.js
--   NestJS o Express
--   API REST
--   OAuth 2.0 (Notion)
+Si `cloudflared` corre en un servidor distinto, asegúrate de que la IP macvlan es alcanzable desde él. Problemas de caché ARP pueden causar 502 intermitentes — reiniciar `cloudflared` los resuelve.
 
-## Base de datos
+### Despliegue
 
--   PostgreSQL
+```bash
+# Build y arranque en producción
+docker compose -f docker-compose.prod.yml up -d --build
 
-## Infraestructura
+# Ver estado
+docker compose -f docker-compose.prod.yml ps
 
--   Docker
--   Docker Compose
--   Nginx (opcional)
+# Ver logs
+docker logs notion_charts_backend -f
+docker logs notion_charts_frontend -f
+```
 
-------------------------------------------------------------------------
+Las migraciones se aplican automáticamente al arrancar el backend (definido en el CMD del Dockerfile de producción).
 
-# 6. Funcionalidades principales
+### Redis (opcional)
 
-El sistema debe permitir:
+Redis está disponible pero desactivado por defecto. Para activarlo:
 
--   crear cuentas de usuario
--   conectar cuentas de Notion
--   seleccionar bases de datos
--   configurar gráficos mediante interfaz visual
--   visualizar preview del gráfico
--   publicar gráficos
--   generar enlaces embebibles
--   gestionar gráficos desde una galería
+```bash
+docker compose -f docker-compose.prod.yml --profile with-redis up -d
+```
 
-------------------------------------------------------------------------
+---
 
-# 7. Gestión de usuarios
+## Integración con Notion
 
-## Registro
+### Integraciones necesarias
 
-Usuarios pueden registrarse con:
+El proyecto requiere **dos integraciones separadas** en [notion.so/profile/integrations](https://www.notion.so/profile/integrations):
 
--   email
--   contraseña
+#### 1. Integración de login de usuario
 
-Opcional:
+- Tipo: **Público**
+- Sin "Vista previa del enlace"
+- URI de redireccionamiento: `https://tu-dominio.com/api/integrations/notion/callback`
+- Permisos: _Leer información de usuario, incluidas direcciones de correo electrónico_
+- Las credenciales van en `NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET`
 
--   login con Google
+#### 2. Integración Link Preview / oEmbed (opcional)
 
-## Roles
+- Tipo: **Público** con "Vista previa del enlace" activada
+- URL de autorización de OAuth: `https://tu-dominio.com/embed/oembed`
+- URL de token: `https://tu-dominio.com/notion-lp/token`
+- Las credenciales van en `NOTION_LP_CLIENT_ID` / `NOTION_LP_CLIENT_SECRET`
 
-Roles mínimos:
+> Mezclar ambos flujos en la misma integración provoca el error `invalid_grant: Please provide external_account info`.
 
--   ADMIN
--   USER
+### Flujo OAuth de login
 
-------------------------------------------------------------------------
+```
+1. Browser → GET /api/integrations/notion/login
+2. Redirect → https://api.notion.com/v1/oauth/authorize?...&state=<JWT>
+3. Usuario autoriza en Notion
+4. Notion → GET /api/integrations/notion/callback?code=...&state=...
+5. Backend valida state JWT, intercambia code por access_token
+6. Backend guarda token, devuelve JWT de sesión al frontend
+7. Frontend almacena JWT en localStorage
+```
 
-# 8. Integración con Notion
+---
 
-La integración se realiza mediante la API oficial.
+## API
 
-Funciones:
+### Auth
 
--   conexión OAuth
--   listado de bases de datos
--   lectura de propiedades
--   consulta de registros
+```
+POST /auth/register        { name, email, password }
+POST /auth/login           { email, password }
+```
 
-Tipos soportados:
+### Notion
 
--   text
--   number
--   select
--   multi-select
--   date
--   checkbox
+```
+GET  /integrations/notion/login       Inicia OAuth
+GET  /integrations/notion/callback    Callback OAuth
+GET  /integrations/notion/databases   Lista DBs conectadas
+POST /integrations/notion/disconnect  Revoca integración
+```
 
-------------------------------------------------------------------------
+### Charts
 
-# 9. Sistema de gráficos
+```
+GET    /charts                Listar gráficos del usuario
+POST   /charts                Crear gráfico
+GET    /charts/:id            Obtener gráfico
+PUT    /charts/:id            Actualizar gráfico
+DELETE /charts/:id            Eliminar gráfico
+GET    /charts/:id/data       Consultar datos de Notion para el gráfico
+POST   /charts/:id/publish    Publicar (genera embed_token)
+POST   /charts/:id/unpublish  Despublicar
+```
 
-Tipos iniciales:
+### Embed (sin autenticación)
 
--   Bar Chart
--   Line Chart
--   Pie Chart
--   Donut Chart
--   Table
--   KPI
+```
+GET /embed/:token    Renderiza el gráfico como iframe
+```
 
-Configuraciones:
+---
 
--   título
--   eje X
--   eje Y
--   series
--   filtros
--   agregaciones
--   colores
--   leyenda
+## Tipos de gráfico y configuración
 
-------------------------------------------------------------------------
+### Tipos soportados
 
-# 10. Galería de gráficos
+| Valor | Descripción |
+|-------|-------------|
+| `bar` | Barras verticales |
+| `bar_horizontal` | Barras horizontales |
+| `line` | Líneas |
+| `area` | Área |
+| `pie` | Tarta |
+| `donut` | Donut |
+| `radar` | Radar |
+| `table` | Tabla |
+| `kpi` | KPI (valor único) |
 
-La galería permite:
+### Campos de `config_json`
 
--   visualizar gráficos creados
--   editar gráficos
--   duplicar
--   eliminar
--   copiar enlace embed
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `database_id` | `string` | UUID de la base de datos de Notion |
+| `title` | `string` | Título visible del gráfico |
+| `x_field` | `string` | Campo de Notion para el eje X |
+| `y_field` | `string` | Campo de Notion para el eje Y |
+| `aggregation` | `sum\|count\|avg\|none` | Función de agregación |
+| `colors` | `string[]` | Array de colores hex |
+| `legend_position` | `top\|bottom\|left\|right\|none` | Posición de la leyenda |
+| `background` | `string` | Color de fondo del embed |
+| `font_family` | `system-ui\|serif\|monospace` | Tipografía |
+| `font_size` | `number` | Tamaño de fuente en px (8–24) |
+| `chart_height` | `number` | Alto del gráfico en px (150–800) |
+| `bar_width` | `number` | Ancho de las barras en % (10–100) |
+| `show_grid` | `boolean` | Mostrar cuadrícula |
+| `border_radius` | `number` | Radio de borde en px (0–20) |
+| `radar_label_field` | `string` | Campo etiqueta para radar |
+| `radar_axes` | `string[]` | Campos de los ejes del radar |
 
-------------------------------------------------------------------------
+### Propiedades de Notion soportadas
 
-# 11. Sistema de enlaces embebibles
-
-Cada gráfico genera un enlace:
-
-    https://charts.app/embed/{chart_token}
-
-Este endpoint renderiza únicamente el gráfico para ser usado como embed.
-
-------------------------------------------------------------------------
-
-# 12. API del sistema
-
-## Auth
-
-    POST /auth/register
-    POST /auth/login
-    POST /auth/logout
-    POST /auth/forgot-password
-
-## Notion
-
-    GET /integrations/notion/connect
-    GET /integrations/notion/callback
-    GET /integrations/notion/databases
-    POST /integrations/notion/disconnect
-
-## Charts
-
-    GET /charts
-    POST /charts
-    GET /charts/:id
-    PUT /charts/:id
-    DELETE /charts/:id
-    POST /charts/:id/publish
-    GET /charts/:id/preview
-
-## Embed
-
-    GET /embed/:token
-
-------------------------------------------------------------------------
-
-# 13. Modelo de datos
-
-## User
-
--   id
--   name
--   email
--   password_hash
--   role
--   status
--   created_at
-
-## Chart
-
--   id
--   user_id
--   name
--   type
--   config_json
--   embed_token
--   published
-
-------------------------------------------------------------------------
-
-# 14. Seguridad
-
--   contraseñas con bcrypt / argon2
--   tokens cifrados
--   HTTPS obligatorio
--   protección contra XSS y CSRF
-
-------------------------------------------------------------------------
-
-# 15. Requerimientos no funcionales
-
--   rendimiento optimizado para embeds
--   uso de caché
--   logs estructurados
--   arquitectura escalable
-
-------------------------------------------------------------------------
-
-# 16. Despliegue con Docker Compose
-
-Servicios:
-
--   frontend
--   backend
--   postgres
--   redis (opcional)
-
-Estructura:
-
-    project/
-     ├ frontend/
-     ├ backend/
-     ├ docker-compose.yml
-     ├ .env
-
-Script start.sh que inicie el proyecto y aplique migraciones si es necesario
-
-------------------------------------------------------------------------
-
-# 17. Variables de entorno
-
-Ejemplo:
-
-    DATABASE_URL=postgres://user:password@postgres:5432/charts
-    JWT_SECRET=secret
-
-    NOTION_CLIENT_ID=
-    NOTION_CLIENT_SECRET=
-    NOTION_REDIRECT_URI=
-
-    APP_BASE_URL=http://localhost:3000
-    EMBED_BASE_URL=http://localhost:4000
-
-------------------------------------------------------------------------
-
-# 18. Flujo funcional
-
-1.  Usuario crea cuenta
-2.  Inicia sesión
-3.  Conecta Notion
-4.  Selecciona base de datos
-5.  Configura gráfico
-6.  Publica gráfico
-7.  Copia enlace embed
-8.  Inserta enlace en Notion
-
-------------------------------------------------------------------------
-
-# 19. Roadmap
-
-## Fase 1
-
--   autenticación
--   conexión Notion
--   lectura de datos
-
-## Fase 2
-
--   motor de gráficos
--   preview
--   embeds
-
-## Fase 3
-
--   galería
--   duplicado
--   filtros
-
-------------------------------------------------------------------------
-
-# 20. Criterios de aceptación
-
-El sistema será válido cuando:
-
--   usuario puede registrarse
--   puede conectar Notion
--   puede crear gráfico
--   puede generar embed
--   el embed funciona en Notion
--   el sistema se despliega con Docker Compose
+`title`, `rich_text`, `number`, `select`, `multi_select`, `date`, `checkbox`, `formula`

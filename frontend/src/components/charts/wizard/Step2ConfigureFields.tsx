@@ -22,6 +22,7 @@ export interface FieldsConfig {
   font_family?: ChartConfig['font_family'];
   show_grid?: boolean;
   border_radius?: number;
+  bar_width?: number;
   radar_label_field?: string;
   radar_axes?: string[];
 }
@@ -139,12 +140,14 @@ export default function Step2ConfigureFields({ databaseId, config, onChange }: P
 
       <div className="border-t border-border pt-4">
         <CustomizationPanel
+          type={config.type}
           config={{
             legend_position: config.legend_position,
             background: config.background,
             font_family: config.font_family,
             show_grid: config.show_grid,
             border_radius: config.border_radius,
+            bar_width: config.bar_width,
           }}
           onChange={({ colors: _colors, database_id: _db, filters: _f, ...rest }) =>
             onChange({ ...config, ...rest })

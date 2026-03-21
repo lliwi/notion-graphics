@@ -14,6 +14,9 @@ export interface ChartConfig {
   font_family?: 'system-ui' | 'serif' | 'monospace';
   show_grid?: boolean;
   border_radius?: number;
+  font_size?: number;
+  chart_height?: number;
+  bar_width?: number;
   radar_label_field?: string;
   radar_axes?: string[];
 }

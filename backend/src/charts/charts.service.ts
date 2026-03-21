@@ -69,6 +69,12 @@ export class ChartsService {
     return this.chartRepo.save(chart);
   }
 
+  async unpublish(id: string, userId: string): Promise<Chart> {
+    const chart = await this.findOne(id, userId);
+    chart.published = false;
+    return this.chartRepo.save(chart);
+  }
+
   async getData(id: string, userId: string) {
     const chart = await this.findOne(id, userId);
     const accessToken = await this.notionData.getAccessToken(userId);

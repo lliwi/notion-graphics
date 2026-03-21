@@ -19,18 +19,24 @@ function buildDataset(data: ChartDataResult, config: ChartConfig, type: ChartTyp
   const isPolar = type === 'pie' || type === 'donut';
   const isRadar = type === 'radar';
   const isArea = type === 'area';
+  const isBar = type === 'bar' || type === 'bar_horizontal';
 
   return {
     labels: data.labels,
     datasets: data.datasets.map((ds, i) => ({
       label: ds.label,
       data: ds.data,
+      barPercentage: isBar ? (config.bar_width ?? 80) / 100 : undefined,
       backgroundColor: isPolar
         ? colors
         : isRadar
         ? colors[i % colors.length] + '33'
-        : colors.map((c) => c + '33'),
-      borderColor: isPolar ? '#ffffff44' : colors[i % colors.length],
+        : data.labels.map((_, j) => colors[j % colors.length] + '99'),
+      borderColor: isPolar
+        ? '#ffffff44'
+        : isRadar
+        ? colors[i % colors.length]
+        : data.labels.map((_, j) => colors[j % colors.length]),
       borderWidth: 2,
       tension: 0.3,
       fill: isArea,
@@ -39,21 +45,48 @@ function buildDataset(data: ChartDataResult, config: ChartConfig, type: ChartTyp
   };
 }
 
-const LEGEND_OPTS = { labels: { color: '#F0EBE1', font: { size: 11 } } };
-
 export default function ChartPreview({ type, data, config }: Props) {
   const gridColor = config.show_grid !== false ? '#2A3040' : 'transparent';
   const legendPos = config.legend_position ?? 'bottom';
   const showLegend = legendPos !== 'none';
+  const fontSize = config.font_size ?? 11;
+  const chartHeight = config.chart_height ?? 300;
+
+  const colors = config.colors.length > 0 ? config.colors : DEFAULT_COLORS;
+  const isPolar = type === 'pie' || type === 'donut';
+  const isRadar = type === 'radar';
+
+  const generateLabels = isPolar || isRadar
+    ? undefined
+    : (chart: any) =>
+        (chart.data.labels as string[]).map((label: string, i: number) => ({
+          text: label,
+          fillStyle: colors[i % colors.length],
+          strokeStyle: colors[i % colors.length],
+          lineWidth: 1,
+          hidden: false,
+          fontColor: '#F0EBE1',
+        }));
+
+  const LEGEND_OPTS = {
+    labels: {
+      color: '#F0EBE1',
+      font: { size: fontSize },
+      ...(generateLabels ? { generateLabels } : {}),
+    },
+  };
+
+  const TICK_STYLE = { color: '#8A8F9A', font: { size: fontSize }, align: 'center' as const };
+  const TICK_STYLE_Y = { color: '#8A8F9A', font: { size: fontSize } };
 
   const DARK_SCALES = {
-    x: { ticks: { color: '#8A8F9A' }, grid: { color: gridColor } },
-    y: { ticks: { color: '#8A8F9A' }, grid: { color: gridColor }, beginAtZero: true },
+    x: { ticks: TICK_STYLE, grid: { color: gridColor }, offset: true },
+    y: { ticks: TICK_STYLE_Y, grid: { color: gridColor }, beginAtZero: true },
   };
 
   const DARK_SCALES_HBAR = {
-    x: { ticks: { color: '#8A8F9A' }, grid: { color: gridColor }, beginAtZero: true },
-    y: { ticks: { color: '#8A8F9A' }, grid: { color: gridColor } },
+    x: { ticks: TICK_STYLE_Y, grid: { color: gridColor }, beginAtZero: true },
+    y: { ticks: TICK_STYLE, grid: { color: gridColor }, offset: true },
   };
 
   const OPTIONS_BASE = {
@@ -90,7 +123,7 @@ export default function ChartPreview({ type, data, config }: Props) {
           <thead>
             <tr>
               <th className="text-left px-3 py-2 border-b border-border text-text-muted font-mono text-xs">{config.x_field}</th>
-              <th className="text-right px-3 py-2 border-b border-border text-text-muted font-mono text-xs">{config.y_field || 'Valor'}</th>
+              <th className="text-right px-3 py-2 border-b border-border text-text-muted font-mono text-xs">{config.y_field}</th>
             </tr>
           </thead>
           <tbody>
@@ -114,16 +147,16 @@ export default function ChartPreview({ type, data, config }: Props) {
     ...OPTIONS_BASE,
     scales: {
       r: {
-        ticks: { color: '#8A8F9A', backdropColor: 'transparent', font: { size: 10 } },
+        ticks: { color: '#8A8F9A', backdropColor: 'transparent', font: { size: fontSize } },
         grid: { color: gridColor },
         angleLines: { color: gridColor },
-        pointLabels: { color: '#F0EBE1', font: { size: 11 } },
+        pointLabels: { color: '#F0EBE1', font: { size: fontSize } },
       },
     },
   };
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative w-full" style={{ height: `${chartHeight}px` }}>
       {type === 'bar' && <Bar data={chartData} options={withScales} />}
       {type === 'bar_horizontal' && <Bar data={chartData} options={{ ...withHBarScales, indexAxis: 'y' as const }} />}
       {type === 'line' && <Line data={chartData} options={withScales} />}

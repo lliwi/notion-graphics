@@ -106,6 +106,17 @@ function ChartDetailContent({ id }: { id: string }) {
     }
   };
 
+  const handleUnpublish = async () => {
+    if (!confirm('¿Despublicar este gráfico? El embed dejará de funcionar.')) return;
+    setPublishing(true);
+    try {
+      const { data } = await api.post<Chart>(`/charts/${id}/unpublish`);
+      setChart(data);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm('¿Eliminar este gráfico?')) return;
     setDeleting(true);
@@ -127,7 +138,11 @@ function ChartDetailContent({ id }: { id: string }) {
         </Link>
         <h1 className="text-lg font-bold text-text font-mono truncate flex-1">{chart.name}</h1>
         <div className="flex items-center gap-2">
-          {!chart.published && (
+          {chart.published ? (
+            <Button variant="secondary" size="sm" onClick={handleUnpublish} loading={publishing}>
+              Despublicar
+            </Button>
+          ) : (
             <Button variant="secondary" size="sm" onClick={handlePublish} loading={publishing}>
               Publicar
             </Button>
@@ -141,91 +156,96 @@ function ChartDetailContent({ id }: { id: string }) {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-        {/* Preview */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-surface-2 border border-border rounded-lg p-4" style={{ height: 380 }}>
-            {dataLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Spinner />
+      <main className="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-6">
+        {/* Top row: preview + config */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+          {/* Preview */}
+          <div className="flex flex-col gap-4">
+            <div className="bg-surface-2 border border-border rounded-lg p-4" style={{ height: (chart.config_json.chart_height ?? 300) + 32 }}>
+              {dataLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Spinner />
+                </div>
+              ) : dataError ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-red-400 text-sm">{dataError}</p>
+                </div>
+              ) : chartData ? (
+                <ChartPreview type={chart.type} data={chartData} config={chart.config_json} />
+              ) : null}
+            </div>
+
+            {chart.published && chart.embed_token && (
+              <div className="bg-surface-2 border border-border rounded-lg p-4">
+                <EmbedCodeBox embedToken={chart.embed_token} backendUrl={EMBED_BASE_URL} />
               </div>
-            ) : dataError ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-red-400 text-sm">{dataError}</p>
-              </div>
-            ) : chartData ? (
-              <ChartPreview type={chart.type} data={chartData} config={chart.config_json} />
-            ) : null}
+            )}
           </div>
 
-          {chart.published && chart.embed_token && (
-            <div className="bg-surface-2 border border-border rounded-lg p-4">
-              <EmbedCodeBox embedToken={chart.embed_token} backendUrl={EMBED_BASE_URL} />
-            </div>
-          )}
+          {/* Edit form */}
+          <div className="bg-surface-2 border border-border rounded-lg p-5 flex flex-col gap-4 h-fit">
+            <h2 className="text-xs text-text-muted uppercase font-mono tracking-wider">Configuración</h2>
+
+            <Input
+              label="Nombre"
+              value={chart.name}
+              onChange={(e) => updateField('name', e.target.value)}
+            />
+            <Select
+              label="Tipo"
+              value={chart.type}
+              onChange={(e) => updateField('type', e.target.value as ChartType)}
+              options={CHART_TYPE_OPTIONS}
+            />
+            <Input
+              label="Título visible"
+              value={chart.config_json.title}
+              onChange={(e) => updateConfig('title', e.target.value)}
+            />
+            <Select
+              label="Campo X"
+              value={chart.config_json.x_field}
+              onChange={(e) => updateConfig('x_field', e.target.value)}
+              options={[
+                { value: '', label: '— Seleccionar campo —' },
+                ...properties.map((p) => ({ value: p.name, label: `${p.name} (${p.type})` })),
+              ]}
+            />
+            <Select
+              label="Campo Y"
+              value={chart.config_json.y_field}
+              onChange={(e) => updateConfig('y_field', e.target.value)}
+              options={[
+                { value: '', label: '— Seleccionar campo —' },
+                ...properties.map((p) => ({ value: p.name, label: `${p.name} (${p.type})` })),
+              ]}
+            />
+            <Select
+              label="Agregación"
+              value={chart.config_json.aggregation}
+              onChange={(e) => updateConfig('aggregation', e.target.value as Aggregation)}
+              options={AGGREGATION_OPTIONS}
+            />
+            <ColorPaletteSelect
+              value={colorsStr}
+              onChange={(v) =>
+                updateConfig('colors', v.split(',').map((c) => c.trim()).filter(Boolean))
+              }
+            />
+
+            {saveError && <p className="text-sm text-red-400">{saveError}</p>}
+          </div>
         </div>
 
-        {/* Edit form */}
-        <div className="bg-surface-2 border border-border rounded-lg p-5 flex flex-col gap-4 h-fit">
-          <h2 className="text-xs text-text-muted uppercase font-mono tracking-wider">Configuración</h2>
-
-          <Input
-            label="Nombre"
-            value={chart.name}
-            onChange={(e) => updateField('name', e.target.value)}
+        {/* Bottom row: personalización (full width) */}
+        <div className="bg-surface-2 border border-border rounded-lg p-5">
+          <CustomizationPanel
+            config={chart.config_json}
+            type={chart.type}
+            onChange={(patch) => {
+              Object.entries(patch).forEach(([k, v]) => updateConfig(k, v));
+            }}
           />
-          <Select
-            label="Tipo"
-            value={chart.type}
-            onChange={(e) => updateField('type', e.target.value as ChartType)}
-            options={CHART_TYPE_OPTIONS}
-          />
-          <Input
-            label="Título visible"
-            value={chart.config_json.title}
-            onChange={(e) => updateConfig('title', e.target.value)}
-          />
-          <Select
-            label="Campo X"
-            value={chart.config_json.x_field}
-            onChange={(e) => updateConfig('x_field', e.target.value)}
-            options={[
-              { value: '', label: '— Seleccionar campo —' },
-              ...properties.map((p) => ({ value: p.name, label: `${p.name} (${p.type})` })),
-            ]}
-          />
-          <Select
-            label="Campo Y"
-            value={chart.config_json.y_field}
-            onChange={(e) => updateConfig('y_field', e.target.value)}
-            options={[
-              { value: '', label: '— Seleccionar campo —' },
-              ...properties.map((p) => ({ value: p.name, label: `${p.name} (${p.type})` })),
-            ]}
-          />
-          <Select
-            label="Agregación"
-            value={chart.config_json.aggregation}
-            onChange={(e) => updateConfig('aggregation', e.target.value as Aggregation)}
-            options={AGGREGATION_OPTIONS}
-          />
-          <ColorPaletteSelect
-            value={colorsStr}
-            onChange={(v) =>
-              updateConfig('colors', v.split(',').map((c) => c.trim()).filter(Boolean))
-            }
-          />
-
-          <div className="border-t border-border pt-4">
-            <CustomizationPanel
-              config={chart.config_json}
-              onChange={(patch) => {
-                Object.entries(patch).forEach(([k, v]) => updateConfig(k, v));
-              }}
-            />
-          </div>
-
-          {saveError && <p className="text-sm text-red-400">{saveError}</p>}
         </div>
       </main>
     </div>
