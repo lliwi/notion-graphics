@@ -42,15 +42,11 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-charts}?sslmode=disable
       NODE_ENV: production
-    ports:
-      - '3000:3000'
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      back-lan: {}
-      int-lan:
-        ipv4_address: 192.168.0.29
+      - back-lan
 
   frontend:
     build:
@@ -58,7 +54,7 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_API_URL: /api
         NEXT_PUBLIC_EMBED_BASE_URL: ${NEXT_PUBLIC_EMBED_BASE_URL}
     container_name: notion_charts_frontend
     restart: unless-stopped
@@ -66,7 +62,6 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
       NEXT_INTERNAL_API_URL: http://backend:3000
       PORT: 3001
     ports:
