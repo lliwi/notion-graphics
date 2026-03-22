@@ -20,7 +20,9 @@ import { Chart, ChartType, Aggregation } from '@/types';
 
 const CHART_TYPE_OPTIONS = [
   { value: 'bar', label: '▊ Barras' },
+  { value: 'bar_stacked', label: '▊ Barras apiladas' },
   { value: 'bar_horizontal', label: '▬ Barras horizontales' },
+  { value: 'bar_horizontal_stacked', label: '▬ Barras horiz. apiladas' },
   { value: 'line', label: '↗ Líneas' },
   { value: 'area', label: '◿ Área' },
   { value: 'pie', label: '◕ Tarta' },
@@ -35,6 +37,12 @@ const AGGREGATION_OPTIONS = [
   { value: 'sum', label: 'Suma' },
   { value: 'count', label: 'Conteo' },
   { value: 'avg', label: 'Media' },
+  { value: 'min', label: 'Mínimo' },
+  { value: 'max', label: 'Máximo' },
+  { value: 'median', label: 'Mediana' },
+  { value: 'count_unique', label: 'Valores únicos' },
+  { value: 'percent', label: 'Porcentaje' },
+  { value: 'range', label: 'Rango (max-min)' },
 ];
 
 const EMBED_BASE_URL = process.env.NEXT_PUBLIC_EMBED_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
@@ -161,7 +169,7 @@ function ChartDetailContent({ id }: { id: string }) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
           {/* Preview */}
           <div className="flex flex-col gap-4">
-            <div className="bg-surface-2 border border-border rounded-lg p-4" style={{ height: (chart.config_json.chart_height ?? 300) + 32 }}>
+            <div className="bg-surface-2 border border-border rounded-lg p-4" style={{ minHeight: 332 }}>
               {dataLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <Spinner />
@@ -180,10 +188,20 @@ function ChartDetailContent({ id }: { id: string }) {
                 <EmbedCodeBox embedToken={chart.embed_token} backendUrl={EMBED_BASE_URL} />
               </div>
             )}
+
+            <div className="bg-surface-2 border border-border rounded-lg p-5">
+              <CustomizationPanel
+                config={chart.config_json}
+                type={chart.type}
+                onChange={(patch) => {
+                  Object.entries(patch).forEach(([k, v]) => updateConfig(k, v));
+                }}
+              />
+            </div>
           </div>
 
           {/* Edit form */}
-          <div className="bg-surface-2 border border-border rounded-lg p-5 flex flex-col gap-4 h-fit">
+          <div className="bg-surface-2 border border-border rounded-lg p-5 flex flex-col gap-4 h-fit min-w-0 overflow-hidden">
             <h2 className="text-xs text-text-muted uppercase font-mono tracking-wider">Configuración</h2>
 
             <Input
@@ -211,21 +229,89 @@ function ChartDetailContent({ id }: { id: string }) {
                 ...properties.map((p) => ({ value: p.name, label: `${p.name} (${p.type})` })),
               ]}
             />
-            <Select
-              label="Campo Y"
-              value={chart.config_json.y_field}
-              onChange={(e) => updateConfig('y_field', e.target.value)}
-              options={[
-                { value: '', label: '— Seleccionar campo —' },
-                ...properties.map((p) => ({ value: p.name, label: `${p.name} (${p.type})` })),
-              ]}
-            />
-            <Select
-              label="Agregación"
-              value={chart.config_json.aggregation}
-              onChange={(e) => updateConfig('aggregation', e.target.value as Aggregation)}
-              options={AGGREGATION_OPTIONS}
-            />
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-text-muted uppercase tracking-wider font-mono">
+                Campos Y (valores)
+              </label>
+              {(chart.config_json.y_fields?.length
+                ? chart.config_json.y_fields
+                : [chart.config_json.y_field || '']
+              ).map((field, i) => {
+                const aggs = chart.config_json.aggregations?.length ? chart.config_json.aggregations : [chart.config_json.aggregation];
+                const agg = aggs[i] ?? chart.config_json.aggregation;
+                return (
+                  <div key={i} className="flex items-center gap-1 min-w-0">
+                    <select
+                      value={field}
+                      onChange={(e) => {
+                        const current = chart.config_json.y_fields?.length
+                          ? [...chart.config_json.y_fields]
+                          : [chart.config_json.y_field || ''];
+                        current[i] = e.target.value;
+                        updateConfig('y_fields', current);
+                        updateConfig('y_field', current[0] || '');
+                      }}
+                      className="flex-1 min-w-0 bg-surface-3 border border-border rounded-md px-2 py-2 text-sm text-text focus:outline-none focus:border-accent transition-colors truncate"
+                    >
+                      <option value="">— Seleccionar campo —</option>
+                      {properties.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name} ({p.type})</option>
+                      ))}
+                    </select>
+                    <select
+                      value={agg}
+                      onChange={(e) => {
+                        const fields = chart.config_json.y_fields?.length ? chart.config_json.y_fields : [chart.config_json.y_field || ''];
+                        const currentAggs = chart.config_json.aggregations?.length ? [...chart.config_json.aggregations] : fields.map(() => chart.config_json.aggregation);
+                        currentAggs[i] = e.target.value as Aggregation;
+                        updateConfig('aggregations', currentAggs);
+                        updateConfig('aggregation', currentAggs[0]);
+                      }}
+                      className="w-28 shrink-0 bg-surface-3 border border-border rounded-md px-1 py-2 text-xs text-text focus:outline-none focus:border-accent transition-colors"
+                    >
+                      {AGGREGATION_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    {(chart.config_json.y_fields?.length ?? 1) > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentFields = [...(chart.config_json.y_fields || [chart.config_json.y_field || ''])];
+                          const currentAggs = [...(chart.config_json.aggregations || currentFields.map(() => chart.config_json.aggregation))];
+                          currentFields.splice(i, 1);
+                          currentAggs.splice(i, 1);
+                          updateConfig('y_fields', currentFields);
+                          updateConfig('y_field', currentFields[0] || '');
+                          updateConfig('aggregations', currentAggs);
+                          updateConfig('aggregation', currentAggs[0]);
+                        }}
+                        className="text-text-muted hover:text-red-400 transition-colors text-lg px-1"
+                        title="Eliminar campo"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  const currentFields = chart.config_json.y_fields?.length
+                    ? [...chart.config_json.y_fields]
+                    : [chart.config_json.y_field || ''];
+                  const currentAggs = chart.config_json.aggregations?.length
+                    ? [...chart.config_json.aggregations]
+                    : currentFields.map(() => chart.config_json.aggregation);
+                  updateConfig('y_fields', [...currentFields, '']);
+                  updateConfig('aggregations', [...currentAggs, 'none']);
+                }}
+                className="text-xs text-accent hover:text-accent/80 transition-colors self-start font-mono"
+              >
+                + Añadir campo
+              </button>
+            </div>
             <ColorPaletteSelect
               value={colorsStr}
               onChange={(v) =>
@@ -237,16 +323,7 @@ function ChartDetailContent({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Bottom row: personalización (full width) */}
-        <div className="bg-surface-2 border border-border rounded-lg p-5">
-          <CustomizationPanel
-            config={chart.config_json}
-            type={chart.type}
-            onChange={(patch) => {
-              Object.entries(patch).forEach(([k, v]) => updateConfig(k, v));
-            }}
-          />
-        </div>
+
       </main>
     </div>
   );

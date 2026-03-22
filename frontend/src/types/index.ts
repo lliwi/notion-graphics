@@ -1,12 +1,14 @@
-export type ChartType = 'bar' | 'line' | 'area' | 'bar_horizontal' | 'pie' | 'donut' | 'radar' | 'table' | 'kpi';
-export type Aggregation = 'sum' | 'count' | 'avg' | 'none';
+export type ChartType = 'bar' | 'bar_stacked' | 'line' | 'area' | 'bar_horizontal' | 'bar_horizontal_stacked' | 'pie' | 'donut' | 'radar' | 'table' | 'kpi';
+export type Aggregation = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none';
 
 export interface ChartConfig {
   database_id: string;
   title: string;
   x_field: string;
   y_field: string;
+  y_fields?: string[];
   aggregation: Aggregation;
+  aggregations?: Aggregation[];
   filters: unknown[];
   colors: string[];
   legend_position?: 'top' | 'bottom' | 'left' | 'right' | 'none';

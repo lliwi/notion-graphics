@@ -15,7 +15,9 @@ export interface FieldsConfig {
   title: string;
   x_field: string;
   y_field: string;
+  y_fields?: string[];
   aggregation: Aggregation;
+  aggregations?: Aggregation[];
   colors: string;
   legend_position?: ChartConfig['legend_position'];
   background?: string;
@@ -35,7 +37,9 @@ interface Props {
 
 const CHART_TYPE_OPTIONS = [
   { value: 'bar', label: '▊ Barras' },
+  { value: 'bar_stacked', label: '▊ Barras apiladas' },
   { value: 'bar_horizontal', label: '▬ Barras horizontales' },
+  { value: 'bar_horizontal_stacked', label: '▬ Barras horiz. apiladas' },
   { value: 'line', label: '↗ Líneas' },
   { value: 'area', label: '◿ Área' },
   { value: 'pie', label: '◕ Tarta' },
@@ -50,6 +54,12 @@ const AGGREGATION_OPTIONS = [
   { value: 'sum', label: 'Suma' },
   { value: 'count', label: 'Conteo' },
   { value: 'avg', label: 'Media' },
+  { value: 'min', label: 'Mínimo' },
+  { value: 'max', label: 'Máximo' },
+  { value: 'median', label: 'Mediana' },
+  { value: 'count_unique', label: 'Valores únicos' },
+  { value: 'percent', label: 'Porcentaje' },
+  { value: 'range', label: 'Rango (max-min)' },
 ];
 
 const TYPE_EMOJI: Record<string, string> = {
@@ -109,29 +119,81 @@ export default function Step2ConfigureFields({ databaseId, config, onChange }: P
           onAxesChange={(v) => onChange({ ...config, radar_axes: v })}
         />
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-4">
           <Select
             label="Campo X (eje / categoría)"
             value={config.x_field}
             onChange={set('x_field')}
             options={fieldOptions}
           />
-          <Select
-            label="Campo Y (valor)"
-            value={config.y_field}
-            onChange={set('y_field')}
-            options={fieldOptions}
-          />
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-text-muted uppercase tracking-wider font-mono">
+              Campos Y (valores)
+            </label>
+            {(config.y_fields?.length ? config.y_fields : [config.y_field || '']).map((field, i) => {
+              const currentAggs = config.aggregations?.length ? config.aggregations : [config.aggregation];
+              const agg = currentAggs[i] ?? config.aggregation;
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={field}
+                    onChange={(e) => {
+                      const current = config.y_fields?.length ? [...config.y_fields] : [config.y_field || ''];
+                      current[i] = e.target.value;
+                      onChange({ ...config, y_fields: current, y_field: current[0] || '' });
+                    }}
+                    className="flex-1 bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-accent transition-colors"
+                  >
+                    {fieldOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={agg}
+                    onChange={(e) => {
+                      const fields = config.y_fields?.length ? config.y_fields : [config.y_field || ''];
+                      const aggs = config.aggregations?.length ? [...config.aggregations] : fields.map(() => config.aggregation);
+                      aggs[i] = e.target.value as Aggregation;
+                      onChange({ ...config, aggregations: aggs, aggregation: aggs[0] });
+                    }}
+                    className="w-36 bg-surface-3 border border-border rounded-md px-2 py-2 text-sm text-text focus:outline-none focus:border-accent transition-colors"
+                  >
+                    {AGGREGATION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {(config.y_fields?.length ?? 1) > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentFields = [...(config.y_fields || [config.y_field || ''])];
+                        const currentAggs = [...(config.aggregations || currentFields.map(() => config.aggregation))];
+                        currentFields.splice(i, 1);
+                        currentAggs.splice(i, 1);
+                        onChange({ ...config, y_fields: currentFields, y_field: currentFields[0] || '', aggregations: currentAggs, aggregation: currentAggs[0] });
+                      }}
+                      className="text-text-muted hover:text-red-400 transition-colors text-lg px-1"
+                      title="Eliminar campo"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                const currentFields = config.y_fields?.length ? [...config.y_fields] : [config.y_field || ''];
+                const currentAggs = config.aggregations?.length ? [...config.aggregations] : currentFields.map(() => config.aggregation);
+                onChange({ ...config, y_fields: [...currentFields, ''], y_field: currentFields[0] || '', aggregations: [...currentAggs, 'none'] });
+              }}
+              className="text-xs text-accent hover:text-accent/80 transition-colors self-start font-mono"
+            >
+              + Añadir campo
+            </button>
+          </div>
         </div>
-      )}
-
-      {config.type !== 'radar' && (
-        <Select
-          label="Agregación"
-          value={config.aggregation}
-          onChange={set('aggregation')}
-          options={AGGREGATION_OPTIONS}
-        />
       )}
       <ColorPaletteSelect
         value={config.colors}

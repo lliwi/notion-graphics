@@ -19,29 +19,39 @@ function buildDataset(data: ChartDataResult, config: ChartConfig, type: ChartTyp
   const isPolar = type === 'pie' || type === 'donut';
   const isRadar = type === 'radar';
   const isArea = type === 'area';
-  const isBar = type === 'bar' || type === 'bar_horizontal';
+  const isBar = type === 'bar' || type === 'bar_horizontal' || type === 'bar_stacked' || type === 'bar_horizontal_stacked';
+  const isMultiDataset = data.datasets.length > 1;
+  const borderRadius = config.border_radius ?? 4;
 
   return {
     labels: data.labels,
-    datasets: data.datasets.map((ds, i) => ({
-      label: ds.label,
-      data: ds.data,
-      barPercentage: isBar ? (config.bar_width ?? 80) / 100 : undefined,
-      backgroundColor: isPolar
-        ? colors
-        : isRadar
-        ? colors[i % colors.length] + '33'
-        : data.labels.map((_, j) => colors[j % colors.length] + '99'),
-      borderColor: isPolar
-        ? '#ffffff44'
-        : isRadar
-        ? colors[i % colors.length]
-        : data.labels.map((_, j) => colors[j % colors.length]),
-      borderWidth: 2,
-      tension: 0.3,
-      fill: isArea,
-      pointBackgroundColor: isRadar ? colors[i % colors.length] : undefined,
-    })),
+    datasets: data.datasets.map((ds, i) => {
+      const dsColor = colors[i % colors.length];
+      return {
+        label: ds.label,
+        data: ds.data,
+        barPercentage: isBar ? (config.bar_width ?? 80) / 100 : undefined,
+        borderRadius: isPolar || isRadar ? undefined : borderRadius,
+        backgroundColor: isPolar
+          ? colors
+          : isRadar
+          ? dsColor + '33'
+          : isMultiDataset
+          ? dsColor + '99'
+          : data.labels.map((_, j) => colors[j % colors.length] + '99'),
+        borderColor: isPolar
+          ? '#ffffff44'
+          : isRadar
+          ? dsColor
+          : isMultiDataset
+          ? dsColor
+          : data.labels.map((_, j) => colors[j % colors.length]),
+        borderWidth: 2,
+        tension: 0.3,
+        fill: isArea,
+        pointBackgroundColor: isRadar ? dsColor : undefined,
+      };
+    }),
   };
 }
 
@@ -51,12 +61,15 @@ export default function ChartPreview({ type, data, config }: Props) {
   const showLegend = legendPos !== 'none';
   const fontSize = config.font_size ?? 11;
   const chartHeight = config.chart_height ?? 300;
+  const fontFamily = config.font_family ?? 'system-ui';
+  const background = config.background ?? 'transparent';
 
   const colors = config.colors.length > 0 ? config.colors : DEFAULT_COLORS;
   const isPolar = type === 'pie' || type === 'donut';
   const isRadar = type === 'radar';
+  const isMultiDs = data.datasets.length > 1;
 
-  const generateLabels = isPolar || isRadar
+  const generateLabels = isPolar || isRadar || isMultiDs
     ? undefined
     : (chart: any) =>
         (chart.data.labels as string[]).map((label: string, i: number) => ({
@@ -71,22 +84,24 @@ export default function ChartPreview({ type, data, config }: Props) {
   const LEGEND_OPTS = {
     labels: {
       color: '#F0EBE1',
-      font: { size: fontSize },
+      font: { size: fontSize, family: fontFamily },
       ...(generateLabels ? { generateLabels } : {}),
     },
   };
 
-  const TICK_STYLE = { color: '#8A8F9A', font: { size: fontSize }, align: 'center' as const };
-  const TICK_STYLE_Y = { color: '#8A8F9A', font: { size: fontSize } };
+  const TICK_STYLE = { color: '#8A8F9A', font: { size: fontSize, family: fontFamily }, align: 'center' as const };
+  const TICK_STYLE_Y = { color: '#8A8F9A', font: { size: fontSize, family: fontFamily } };
+
+  const isStacked = type === 'bar_stacked' || type === 'bar_horizontal_stacked';
 
   const DARK_SCALES = {
-    x: { ticks: TICK_STYLE, grid: { color: gridColor }, offset: true },
-    y: { ticks: TICK_STYLE_Y, grid: { color: gridColor }, beginAtZero: true },
+    x: { ticks: TICK_STYLE, grid: { color: gridColor }, offset: true, ...(isStacked ? { stacked: true } : {}) },
+    y: { ticks: TICK_STYLE_Y, grid: { color: gridColor }, beginAtZero: true, ...(isStacked ? { stacked: true } : {}) },
   };
 
   const DARK_SCALES_HBAR = {
-    x: { ticks: TICK_STYLE_Y, grid: { color: gridColor }, beginAtZero: true },
-    y: { ticks: TICK_STYLE, grid: { color: gridColor }, offset: true },
+    x: { ticks: TICK_STYLE_Y, grid: { color: gridColor }, beginAtZero: true, ...(isStacked ? { stacked: true } : {}) },
+    y: { ticks: TICK_STYLE, grid: { color: gridColor }, offset: true, ...(isStacked ? { stacked: true } : {}) },
   };
 
   const OPTIONS_BASE = {
@@ -105,7 +120,7 @@ export default function ChartPreview({ type, data, config }: Props) {
   if (type === 'kpi') {
     const value = data.datasets[0]?.data[0] ?? 0;
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full rounded-md" style={{ background, fontFamily }}>
         <div className="text-center">
           <p className="font-bold text-accent font-mono" style={{ fontSize: 'clamp(32px, 8vw, 64px)' }}>
             {typeof value === 'number' ? value.toLocaleString() : value}
@@ -118,7 +133,7 @@ export default function ChartPreview({ type, data, config }: Props) {
 
   if (type === 'table') {
     return (
-      <div className="overflow-auto h-full">
+      <div className="overflow-auto h-full rounded-md" style={{ background, fontFamily }}>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
@@ -147,18 +162,20 @@ export default function ChartPreview({ type, data, config }: Props) {
     ...OPTIONS_BASE,
     scales: {
       r: {
-        ticks: { color: '#8A8F9A', backdropColor: 'transparent', font: { size: fontSize } },
+        ticks: { color: '#8A8F9A', backdropColor: 'transparent', font: { size: fontSize, family: fontFamily } },
         grid: { color: gridColor },
         angleLines: { color: gridColor },
-        pointLabels: { color: '#F0EBE1', font: { size: fontSize } },
+        pointLabels: { color: '#F0EBE1', font: { size: fontSize, family: fontFamily } },
       },
     },
   };
 
   return (
-    <div className="relative w-full" style={{ height: `${chartHeight}px` }}>
+    <div className="relative w-full rounded-md" style={{ height: `${chartHeight}px`, background, fontFamily }}>
       {type === 'bar' && <Bar data={chartData} options={withScales} />}
+      {type === 'bar_stacked' && <Bar data={chartData} options={withScales} />}
       {type === 'bar_horizontal' && <Bar data={chartData} options={{ ...withHBarScales, indexAxis: 'y' as const }} />}
+      {type === 'bar_horizontal_stacked' && <Bar data={chartData} options={{ ...withHBarScales, indexAxis: 'y' as const }} />}
       {type === 'line' && <Line data={chartData} options={withScales} />}
       {type === 'area' && <Line data={chartData} options={withScales} />}
       {type === 'pie' && <Pie data={chartData} options={OPTIONS_BASE} />}

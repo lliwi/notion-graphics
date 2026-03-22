@@ -11,9 +11,11 @@ import { User } from '../../users/entities/user.entity';
 
 export enum ChartType {
   BAR = 'bar',
+  BAR_STACKED = 'bar_stacked',
   LINE = 'line',
   AREA = 'area',
   BAR_HORIZONTAL = 'bar_horizontal',
+  BAR_HORIZONTAL_STACKED = 'bar_horizontal_stacked',
   PIE = 'pie',
   DONUT = 'donut',
   RADAR = 'radar',
@@ -26,7 +28,9 @@ export interface ChartConfig {
   title: string;
   x_field: string;
   y_field: string;
-  aggregation: 'sum' | 'count' | 'avg' | 'none';
+  y_fields?: string[];
+  aggregation: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none';
+  aggregations?: Array<'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none'>;
   filters: unknown[];
   colors: string[];
   legend_position?: 'top' | 'bottom' | 'left' | 'right' | 'none';

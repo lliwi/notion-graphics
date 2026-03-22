@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { Chart } from './entities/chart.entity';
+import { Chart, ChartConfig } from './entities/chart.entity';
 import { CreateChartDto } from './dto/create-chart.dto';
 import { UpdateChartDto } from './dto/update-chart.dto';
 import { NotionDataService } from '../notion-data/notion-data.service';
@@ -38,7 +38,7 @@ export class ChartsService {
       user_id: userId,
       name: dto.name,
       type: dto.type,
-      config_json: dto.config_json,
+      config_json: dto.config_json as ChartConfig,
       embed_token: null,
       published: false,
     });

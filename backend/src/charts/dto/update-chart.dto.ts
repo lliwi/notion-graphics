@@ -39,8 +39,19 @@ class UpdateChartConfigDto {
   y_field?: string;
 
   @IsOptional()
-  @IsIn(['sum', 'count', 'avg', 'none'])
-  aggregation?: 'sum' | 'count' | 'avg' | 'none';
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  y_fields?: string[];
+
+  @IsOptional()
+  @IsIn(['sum', 'count', 'avg', 'min', 'max', 'median', 'count_unique', 'percent', 'range', 'none'])
+  aggregation?: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none';
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(['sum', 'count', 'avg', 'min', 'max', 'median', 'count_unique', 'percent', 'range', 'none'], { each: true })
+  aggregations?: Array<'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none'>;
 
   @IsOptional()
   @IsArray()

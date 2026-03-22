@@ -52,15 +52,37 @@ export class NotionDataService {
       return this.buildRadarResult(allResults, config);
     }
 
-    const rows = allResults
-      .filter((r: any) => r.object === 'page')
-      .map((page: any) => ({
-        x: this.extractValue(page.properties[config.x_field ?? '']),
-        y: this.extractValue(page.properties[config.y_field ?? '']),
-      }))
-      .filter((row) => row.x !== null);
+    // Resolve y fields: use y_fields if provided, otherwise fall back to y_field
+    const yFields =
+      config.y_fields?.length
+        ? config.y_fields
+        : config.y_field
+          ? [config.y_field]
+          : [];
 
-    return this.aggregate(rows, config.aggregation, config.y_field);
+    const pages = allResults.filter((r: any) => r.object === 'page');
+
+    // Build one dataset per y field
+    const datasets: Array<{ label: string; data: number[] }> = [];
+    let labels: string[] = [];
+
+    for (let i = 0; i < yFields.length; i++) {
+      const yField = yFields[i];
+      const agg = config.aggregations?.[i] ?? config.aggregation;
+
+      const rows = pages
+        .map((page: any) => ({
+          x: this.extractValue(page.properties[config.x_field ?? '']),
+          y: this.extractValue(page.properties[yField ?? '']),
+        }))
+        .filter((row) => row.x !== null);
+
+      const result = this.aggregate(rows, agg, yField);
+      labels = result.labels;
+      datasets.push(...result.datasets);
+    }
+
+    return { labels, datasets };
   }
 
   private buildRadarResult(
@@ -114,7 +136,7 @@ export class NotionDataService {
 
   private aggregate(
     rows: Array<{ x: string | number | null; y: string | number | null }>,
-    aggregation: 'sum' | 'count' | 'avg' | 'none',
+    aggregation: string,
     yField = 'Value',
   ): ChartDataResult {
     if (aggregation === 'none') {
@@ -125,15 +147,28 @@ export class NotionDataService {
     }
 
     const grouped = new Map<string, number[]>();
+    const groupedRaw = new Map<string, (string | number | null)[]>();
     for (const row of rows) {
       const key = String(row.x ?? '');
       const val = Number(row.y ?? 0);
-      if (!grouped.has(key)) grouped.set(key, []);
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+        groupedRaw.set(key, []);
+      }
       grouped.get(key)!.push(val);
+      groupedRaw.get(key)!.push(row.y);
     }
 
     const labels: string[] = [];
     const data: number[] = [];
+
+    // For percent: compute grand total first
+    let grandTotal = 0;
+    if (aggregation === 'percent') {
+      for (const values of grouped.values()) {
+        grandTotal += values.reduce((a, b) => a + b, 0);
+      }
+    }
 
     for (const [key, values] of grouped.entries()) {
       labels.push(key);
@@ -146,6 +181,38 @@ export class NotionDataService {
           break;
         case 'avg':
           data.push(values.reduce((a, b) => a + b, 0) / values.length);
+          break;
+        case 'min':
+          data.push(Math.min(...values));
+          break;
+        case 'max':
+          data.push(Math.max(...values));
+          break;
+        case 'median': {
+          const sorted = [...values].sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          data.push(
+            sorted.length % 2 === 0
+              ? (sorted[mid - 1] + sorted[mid]) / 2
+              : sorted[mid],
+          );
+          break;
+        }
+        case 'count_unique': {
+          const rawValues = groupedRaw.get(key)!;
+          data.push(new Set(rawValues.map(String)).size);
+          break;
+        }
+        case 'percent': {
+          const groupSum = values.reduce((a, b) => a + b, 0);
+          data.push(grandTotal === 0 ? 0 : (groupSum / grandTotal) * 100);
+          break;
+        }
+        case 'range':
+          data.push(Math.max(...values) - Math.min(...values));
+          break;
+        default:
+          data.push(values.reduce((a, b) => a + b, 0));
           break;
       }
     }
