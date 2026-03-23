@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from '@notionhq/client';
 import { NotionIntegration } from '../integrations/notion/entities/notion-integration.entity';
-import type { ChartConfig } from '../charts/entities/chart.entity';
+import type { ChartConfig, HavingCondition, NotionFilter } from '../charts/entities/chart.entity';
 
 export interface ChartDataResult {
   labels: string[];
@@ -33,15 +33,22 @@ export class NotionDataService {
   ): Promise<ChartDataResult> {
     const notion = new Client({ auth: accessToken });
 
+    const filter = this.buildNotionFilter(config.filters, config.filter_logic);
+    const sorts = this.buildNotionSorts(config.sorts);
+
     // Paginate through all results
     let allResults: any[] = [];
     let cursor: string | undefined = undefined;
     do {
-      const response = await notion.databases.query({
+      const queryParams: any = {
         database_id: config.database_id,
         start_cursor: cursor,
         page_size: 100,
-      });
+      };
+      if (filter) queryParams.filter = filter;
+      if (sorts.length) queryParams.sorts = sorts;
+
+      const response = await notion.databases.query(queryParams);
       allResults = allResults.concat(response.results);
       cursor = response.has_more
         ? (response.next_cursor ?? undefined)
@@ -82,8 +89,164 @@ export class NotionDataService {
       datasets.push(...result.datasets);
     }
 
+    // Apply having (post-aggregation filter)
+    if (config.having && labels.length) {
+      return this.applyHaving({ labels, datasets }, config.having);
+    }
+
     return { labels, datasets };
   }
+
+  /**
+   * Query raw rows from a Notion database (for data preview).
+   * Returns an array of objects keyed by property name.
+   */
+  async queryRawData(
+    accessToken: string,
+    databaseId: string,
+    filters?: NotionFilter[],
+    sorts?: Array<{ property: string; direction: 'ascending' | 'descending' }>,
+    limit = 50,
+  ): Promise<{ rows: Record<string, any>[]; total: number }> {
+    const notion = new Client({ auth: accessToken });
+
+    const filter = this.buildNotionFilter(filters);
+    const notionSorts = this.buildNotionSorts(sorts);
+
+    const queryParams: any = {
+      database_id: databaseId,
+      page_size: Math.min(limit, 100),
+    };
+    if (filter) queryParams.filter = filter;
+    if (notionSorts.length) queryParams.sorts = notionSorts;
+
+    const response = await notion.databases.query(queryParams);
+    const pages = response.results.filter((r: any) => r.object === 'page');
+
+    const rows = pages.map((page: any) => {
+      const row: Record<string, any> = {};
+      for (const [name, prop] of Object.entries(page.properties)) {
+        row[name] = this.extractValue(prop as any);
+      }
+      return row;
+    });
+
+    return { rows, total: rows.length };
+  }
+
+  // ── Notion API filter builder ──────────────────────────────
+
+  private buildNotionFilter(filters?: NotionFilter[], logic: 'and' | 'or' = 'and'): any | undefined {
+    if (!filters?.length) return undefined;
+
+    const conditions = filters.map((f) => this.buildSingleFilter(f)).filter(Boolean);
+    if (!conditions.length) return undefined;
+    if (conditions.length === 1) return conditions[0];
+    return { [logic]: conditions };
+  }
+
+  private buildSingleFilter(f: NotionFilter): any | null {
+    // Relative date operators (no value needed)
+    const relativeDateOps = ['past_week', 'past_month', 'past_year', 'next_week', 'next_month', 'next_year'];
+    if (relativeDateOps.includes(f.operator)) {
+      return {
+        property: f.property,
+        date: { [f.operator]: {} },
+      };
+    }
+
+    // Empty/not-empty operators
+    if (f.operator === 'is_empty' || f.operator === 'is_not_empty') {
+      const notionType = this.mapPropertyType(f.property_type);
+      return {
+        property: f.property,
+        [notionType]: { [f.operator]: true },
+      };
+    }
+
+    // Skip filters with undefined/null/empty value
+    if (f.value === undefined || f.value === null || f.value === '') {
+      return null;
+    }
+
+    // Value-based operators
+    const notionType = this.mapPropertyType(f.property_type);
+    return {
+      property: f.property,
+      [notionType]: { [f.operator]: f.value },
+    };
+  }
+
+  /**
+   * Maps our property_type to the Notion API filter key.
+   */
+  private mapPropertyType(propertyType: string): string {
+    switch (propertyType) {
+      case 'text':
+      case 'rich_text':
+        return 'rich_text';
+      case 'title':
+        return 'title';
+      case 'number':
+        return 'number';
+      case 'select':
+        return 'select';
+      case 'multi_select':
+        return 'multi_select';
+      case 'date':
+        return 'date';
+      case 'checkbox':
+        return 'checkbox';
+      case 'formula':
+        return 'formula';
+      default:
+        return 'rich_text';
+    }
+  }
+
+  // ── Notion API sorts builder ───────────────────────────────
+
+  private buildNotionSorts(
+    sorts?: Array<{ property: string; direction: 'ascending' | 'descending' }>,
+  ): any[] {
+    if (!sorts?.length) return [];
+    return sorts.map((s) => ({
+      property: s.property,
+      direction: s.direction,
+    }));
+  }
+
+  // ── Post-aggregation filter (HAVING) ────────────────────────
+
+  private applyHaving(result: ChartDataResult, having: HavingCondition): ChartDataResult {
+    // Filter based on the first dataset's values (primary Y field)
+    const primaryData = result.datasets[0]?.data ?? [];
+    const keepIndices: number[] = [];
+
+    for (let i = 0; i < result.labels.length; i++) {
+      const val = primaryData[i] ?? 0;
+      let keep = false;
+      switch (having.operator) {
+        case 'greater_than': keep = val > having.value; break;
+        case 'less_than': keep = val < having.value; break;
+        case 'greater_than_or_equal_to': keep = val >= having.value; break;
+        case 'less_than_or_equal_to': keep = val <= having.value; break;
+        case 'equals': keep = val === having.value; break;
+        case 'does_not_equal': keep = val !== having.value; break;
+      }
+      if (keep) keepIndices.push(i);
+    }
+
+    return {
+      labels: keepIndices.map((i) => result.labels[i]),
+      datasets: result.datasets.map((ds) => ({
+        label: ds.label,
+        data: keepIndices.map((i) => ds.data[i]),
+      })),
+    };
+  }
+
+  // ── Value extraction ───────────────────────────────────────
 
   private buildRadarResult(
     allResults: any[],

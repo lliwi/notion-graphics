@@ -10,13 +10,14 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import ColorPaletteSelect from '@/components/ui/ColorPaletteSelect';
 import CustomizationPanel from '@/components/ui/CustomizationPanel';
+import FiltersPanel from '@/components/ui/FiltersPanel';
 import ChartPreview from '@/components/charts/ChartPreview';
 import EmbedCodeBox from '@/components/charts/EmbedCodeBox';
 import { useChart } from '@/hooks/useChart';
 import { useChartData } from '@/hooks/useChartData';
 import { useNotionProperties } from '@/hooks/useNotionProperties';
 import { api } from '@/lib/api';
-import { Chart, ChartType, Aggregation } from '@/types';
+import { Chart, ChartType, Aggregation, NotionFilter, NotionSort } from '@/types';
 
 const CHART_TYPE_OPTIONS = [
   { value: 'bar', label: '▊ Barras' },
@@ -318,6 +319,21 @@ function ChartDetailContent({ id }: { id: string }) {
                 updateConfig('colors', v.split(',').map((c) => c.trim()).filter(Boolean))
               }
             />
+
+            <div className="border-t border-border pt-4">
+              <FiltersPanel
+                databaseId={chart.config_json.database_id}
+                properties={properties}
+                filters={chart.config_json.filters ?? []}
+                filterLogic={chart.config_json.filter_logic ?? 'and'}
+                sorts={chart.config_json.sorts ?? []}
+                having={chart.config_json.having}
+                onFiltersChange={(f) => updateConfig('filters', f)}
+                onFilterLogicChange={(l) => updateConfig('filter_logic', l)}
+                onSortsChange={(s) => updateConfig('sorts', s)}
+                onHavingChange={(h) => updateConfig('having', h)}
+              />
+            </div>
 
             {saveError && <p className="text-sm text-red-400">{saveError}</p>}
           </div>

@@ -5,8 +5,9 @@ import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
 import ColorPaletteSelect from '@/components/ui/ColorPaletteSelect';
 import CustomizationPanel from '@/components/ui/CustomizationPanel';
+import FiltersPanel from '@/components/ui/FiltersPanel';
 import Step2RadarConfig from './Step2RadarConfig';
-import { ChartType, Aggregation, ChartConfig } from '@/types';
+import { ChartType, Aggregation, ChartConfig, NotionFilter, NotionSort, HavingCondition } from '@/types';
 import { useNotionProperties } from '@/hooks/useNotionProperties';
 
 export interface FieldsConfig {
@@ -18,6 +19,10 @@ export interface FieldsConfig {
   y_fields?: string[];
   aggregation: Aggregation;
   aggregations?: Aggregation[];
+  filters?: NotionFilter[];
+  filter_logic?: 'and' | 'or';
+  sorts?: NotionSort[];
+  having?: HavingCondition;
   colors: string;
   legend_position?: ChartConfig['legend_position'];
   background?: string;
@@ -199,6 +204,21 @@ export default function Step2ConfigureFields({ databaseId, config, onChange }: P
         value={config.colors}
         onChange={(v) => onChange({ ...config, colors: v })}
       />
+
+      <div className="border-t border-border pt-4">
+        <FiltersPanel
+          databaseId={databaseId}
+          properties={properties}
+          filters={config.filters ?? []}
+          filterLogic={config.filter_logic ?? 'and'}
+          sorts={config.sorts ?? []}
+          having={config.having}
+          onFiltersChange={(f) => onChange({ ...config, filters: f })}
+          onFilterLogicChange={(l) => onChange({ ...config, filter_logic: l })}
+          onSortsChange={(s) => onChange({ ...config, sorts: s })}
+          onHavingChange={(h) => onChange({ ...config, having: h })}
+        />
+      </div>
 
       <div className="border-t border-border pt-4">
         <CustomizationPanel

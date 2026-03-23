@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
   Param,
+  Post,
   Query,
   Res,
   UseGuards,
@@ -12,10 +14,15 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/strategies/jwt.strategy';
 import { NotionService } from './notion.service';
+import { NotionDataService } from '../../notion-data/notion-data.service';
+import type { NotionFilter } from '../../charts/entities/chart.entity';
 
 @Controller('integrations/notion')
 export class NotionController {
-  constructor(private readonly notionService: NotionService) {}
+  constructor(
+    private readonly notionService: NotionService,
+    private readonly notionData: NotionDataService,
+  ) {}
 
   @Get('login')
   login(@Res() res: Response) {
@@ -56,6 +63,41 @@ export class NotionController {
     @Param('id') id: string,
   ) {
     return this.notionService.getDatabaseProperties(user.userId, id);
+  }
+
+  /**
+   * Get select/multi_select options for a specific property.
+   * Useful for building filter dropdowns in the frontend.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('databases/:id/properties/:propertyName/options')
+  getPropertyOptions(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Param('propertyName') propertyName: string,
+  ) {
+    return this.notionService.getPropertyOptions(user.userId, id, propertyName);
+  }
+
+  /**
+   * Preview raw data from a Notion database with optional filters and sorts.
+   * Useful for exploring data before creating a chart.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('databases/:id/preview')
+  async previewData(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() body: { filters?: NotionFilter[]; sorts?: Array<{ property: string; direction: 'ascending' | 'descending' }>; limit?: number },
+  ) {
+    const accessToken = await this.notionData.getAccessToken(user.userId);
+    return this.notionData.queryRawData(
+      accessToken,
+      id,
+      body.filters,
+      body.sorts,
+      body.limit ?? 50,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

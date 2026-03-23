@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ChartType } from '../entities/chart.entity';
+import { HavingConditionDto, NotionFilterDto, NotionSortDto } from './create-chart.dto';
 
 class UpdateChartConfigDto {
   @IsOptional()
@@ -55,7 +56,24 @@ class UpdateChartConfigDto {
 
   @IsOptional()
   @IsArray()
-  filters?: unknown[];
+  @ValidateNested({ each: true })
+  @Type(() => NotionFilterDto)
+  filters?: NotionFilterDto[];
+
+  @IsOptional()
+  @IsIn(['and', 'or'])
+  filter_logic?: 'and' | 'or';
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => NotionSortDto)
+  sorts?: NotionSortDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => HavingConditionDto)
+  having?: HavingConditionDto;
 
   @IsOptional()
   @IsArray()

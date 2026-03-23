@@ -160,6 +160,29 @@ docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine sh -c \
 
 > Los archivos creados dentro de Docker pertenecen a root. El `chown` al final corrige los permisos para el usuario del host.
 
+### Crear el primer administrador
+
+Todos los usuarios se registran con rol `USER` por defecto. Solo un admin puede promover a otro usuario vía `PATCH /users/:id`. Para crear el primer admin hay que actualizar el rol directamente en la base de datos:
+
+```bash
+# 1. Buscar el id del usuario que quieres promover
+docker exec notion_charts_postgres psql -U user -d charts -c \
+  "SELECT id, email, role FROM users;"
+
+# 2. Promoverlo a ADMIN
+docker exec notion_charts_postgres psql -U user -d charts -c \
+  "UPDATE users SET role = 'ADMIN' WHERE email = 'tu@email.com';"
+```
+
+Una vez que existe al menos un admin, puede promover a otros usuarios desde la API:
+
+```bash
+curl -X PATCH http://localhost:3000/users/<user-id> \
+  -H "Authorization: Bearer <admin-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"role": "ADMIN"}'
+```
+
 ---
 
 ## Despliegue en producción

@@ -1,6 +1,36 @@
 export type ChartType = 'bar' | 'bar_stacked' | 'line' | 'area' | 'bar_horizontal' | 'bar_horizontal_stacked' | 'pie' | 'donut' | 'radar' | 'table' | 'kpi';
 export type Aggregation = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none';
 
+export type NotionFilterOperator =
+  | 'equals' | 'does_not_equal'
+  | 'contains' | 'does_not_contain'
+  | 'starts_with' | 'ends_with'
+  | 'greater_than' | 'less_than' | 'greater_than_or_equal_to' | 'less_than_or_equal_to'
+  | 'is_empty' | 'is_not_empty'
+  | 'before' | 'after' | 'on_or_before' | 'on_or_after'
+  | 'past_week' | 'past_month' | 'past_year' | 'next_week' | 'next_month' | 'next_year';
+
+export type NotionFilterPropertyType = 'text' | 'number' | 'select' | 'multi_select' | 'date' | 'checkbox' | 'rich_text' | 'title' | 'formula';
+
+export interface NotionFilter {
+  property: string;
+  property_type: NotionFilterPropertyType;
+  operator: NotionFilterOperator;
+  value?: string | number | boolean;
+}
+
+export interface NotionSort {
+  property: string;
+  direction: 'ascending' | 'descending';
+}
+
+export type HavingOperator = 'greater_than' | 'less_than' | 'greater_than_or_equal_to' | 'less_than_or_equal_to' | 'equals' | 'does_not_equal';
+
+export interface HavingCondition {
+  operator: HavingOperator;
+  value: number;
+}
+
 export interface ChartConfig {
   database_id: string;
   title: string;
@@ -9,7 +39,10 @@ export interface ChartConfig {
   y_fields?: string[];
   aggregation: Aggregation;
   aggregations?: Aggregation[];
-  filters: unknown[];
+  filters?: NotionFilter[];
+  filter_logic?: 'and' | 'or';
+  sorts?: NotionSort[];
+  having?: HavingCondition;
   colors: string[];
   legend_position?: 'top' | 'bottom' | 'left' | 'right' | 'none';
   background?: string;

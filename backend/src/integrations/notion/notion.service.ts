@@ -229,6 +229,36 @@ export class NotionService {
     );
   }
 
+  async getPropertyOptions(
+    userId: string,
+    databaseId: string,
+    propertyName: string,
+  ): Promise<{ name: string; type: string; options: Array<{ name: string; color?: string }> }> {
+    const integration = await this.integrationRepo.findOne({
+      where: { user_id: userId },
+    });
+    if (!integration) {
+      throw new BadRequestException('Notion not connected');
+    }
+    const notion = new Client({ auth: integration.access_token });
+    const db = await notion.databases.retrieve({ database_id: databaseId });
+    const prop = (db as any).properties[propertyName];
+    if (!prop) {
+      throw new BadRequestException(`Property "${propertyName}" not found`);
+    }
+
+    let options: Array<{ name: string; color?: string }> = [];
+    if (prop.type === 'select' && prop.select?.options) {
+      options = prop.select.options.map((o: any) => ({ name: o.name, color: o.color }));
+    } else if (prop.type === 'multi_select' && prop.multi_select?.options) {
+      options = prop.multi_select.options.map((o: any) => ({ name: o.name, color: o.color }));
+    } else if (prop.type === 'status' && prop.status?.options) {
+      options = prop.status.options.map((o: any) => ({ name: o.name, color: o.color }));
+    }
+
+    return { name: propertyName, type: prop.type, options };
+  }
+
   async disconnect(userId: string): Promise<{ message: string }> {
     await this.integrationRepo.delete({ user_id: userId });
     return { message: 'Notion disconnected' };

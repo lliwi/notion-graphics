@@ -5,6 +5,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -16,6 +17,45 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ChartType } from '../entities/chart.entity';
+
+export class HavingConditionDto {
+  @IsIn(['greater_than', 'less_than', 'greater_than_or_equal_to', 'less_than_or_equal_to', 'equals', 'does_not_equal'])
+  operator: string;
+
+  @IsNumber()
+  value: number;
+}
+
+export class NotionFilterDto {
+  @IsString()
+  @MaxLength(100)
+  property: string;
+
+  @IsIn(['text', 'number', 'select', 'multi_select', 'date', 'checkbox', 'rich_text', 'title', 'formula'])
+  property_type: string;
+
+  @IsIn([
+    'equals', 'does_not_equal', 'contains', 'does_not_contain',
+    'starts_with', 'ends_with',
+    'greater_than', 'less_than', 'greater_than_or_equal_to', 'less_than_or_equal_to',
+    'is_empty', 'is_not_empty',
+    'before', 'after', 'on_or_before', 'on_or_after',
+    'past_week', 'past_month', 'past_year', 'next_week', 'next_month', 'next_year',
+  ])
+  operator: string;
+
+  @IsOptional()
+  value?: string | number | boolean;
+}
+
+export class NotionSortDto {
+  @IsString()
+  @MaxLength(100)
+  property: string;
+
+  @IsIn(['ascending', 'descending'])
+  direction: 'ascending' | 'descending';
+}
 
 class ChartConfigDto {
   @IsUUID()
@@ -49,9 +89,26 @@ class ChartConfigDto {
   @IsIn(['sum', 'count', 'avg', 'min', 'max', 'median', 'count_unique', 'percent', 'range', 'none'], { each: true })
   aggregations?: Array<'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none'>;
 
-  @IsArray()
   @IsOptional()
-  filters?: unknown[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => NotionFilterDto)
+  filters?: NotionFilterDto[];
+
+  @IsOptional()
+  @IsIn(['and', 'or'])
+  filter_logic?: 'and' | 'or';
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => NotionSortDto)
+  sorts?: NotionSortDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => HavingConditionDto)
+  having?: HavingConditionDto;
 
   @IsArray()
   @IsOptional()
