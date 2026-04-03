@@ -43,6 +43,8 @@ export default function Step3Preview({ chartType, config, data, loading, error }
       <p className="text-xs text-text-muted text-center font-mono">
         {chartType === 'radar'
           ? `${data.datasets.length} series · ${data.labels.length} ejes · vista previa`
+          : chartType === 'radar_area'
+          ? `${data.labels.length} dimensiones · vista previa`
           : `${data.labels.length} registros · vista previa`}
       </p>
     </div>

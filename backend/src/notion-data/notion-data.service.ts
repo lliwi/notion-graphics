@@ -84,7 +84,14 @@ export class NotionDataService {
         }))
         .filter((row) => row.x !== null);
 
-      const result = this.aggregate(rows, agg, yField);
+      // If y values are non-numeric, fall back to count
+      const hasNonNumericY =
+        agg !== 'count' &&
+        agg !== 'count_unique' &&
+        rows.some((r) => r.y !== null && typeof r.y === 'string' && isNaN(Number(r.y)));
+      const effectiveAgg = hasNonNumericY ? 'count' : agg;
+
+      const result = this.aggregate(rows, effectiveAgg, yField);
       labels = result.labels;
       datasets.push(...result.datasets);
     }
@@ -261,9 +268,13 @@ export class NotionDataService {
         const seriesName = String(
           this.extractValue(page.properties[labelField]) ?? 'Unknown',
         );
-        const values = axes.map((axis) =>
-          Number(this.extractValue(page.properties[axis]) ?? 0),
-        );
+        const values = axes.map((axis) => {
+          const raw = this.extractValue(page.properties[axis]);
+          if (raw === null || raw === undefined) return 0;
+          if (typeof raw === 'number') return raw;
+          const num = Number(raw);
+          return isNaN(num) ? (raw !== '' ? 1 : 0) : num;
+        });
         return { label: seriesName, data: values };
       })
       .filter((ds) => ds.label !== '' && ds.label !== 'Unknown');

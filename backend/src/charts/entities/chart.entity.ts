@@ -19,6 +19,7 @@ export enum ChartType {
   PIE = 'pie',
   DONUT = 'donut',
   RADAR = 'radar',
+  RADAR_AREA = 'radar_area',
   TABLE = 'table',
   KPI = 'kpi',
 }
@@ -106,7 +107,7 @@ export class Chart {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ type: 'enum', enum: ChartType })
   type: ChartType;
 
   @Column({ type: 'jsonb' })

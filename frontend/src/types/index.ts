@@ -1,4 +1,4 @@
-export type ChartType = 'bar' | 'bar_stacked' | 'line' | 'area' | 'bar_horizontal' | 'bar_horizontal_stacked' | 'pie' | 'donut' | 'radar' | 'table' | 'kpi';
+export type ChartType = 'bar' | 'bar_stacked' | 'line' | 'area' | 'bar_horizontal' | 'bar_horizontal_stacked' | 'pie' | 'donut' | 'radar' | 'radar_area' | 'table' | 'kpi';
 export type Aggregation = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median' | 'count_unique' | 'percent' | 'range' | 'none';
 
 export type NotionFilterOperator =

@@ -75,8 +75,8 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
   if (chartType === 'kpi') return kpiHtml(title, chartData, bg, fontFamily);
 
   const isPolar = chartType === 'pie' || chartType === 'donut';
-  const isRadar = chartType === 'radar';
-  const isArea = chartType === 'area';
+  const isRadar = chartType === 'radar' || chartType === 'radar_area';
+  const isArea = chartType === 'area' || chartType === 'radar_area';
   const isHBar = chartType === 'bar_horizontal' || chartType === 'bar_horizontal_stacked';
   const isStacked = chartType === 'bar_stacked' || chartType === 'bar_horizontal_stacked';
   const isBar = chartType === 'bar' || chartType === 'bar_stacked' || isHBar;
@@ -86,6 +86,7 @@ export function generateEmbedHtml(opts: EmbedOptions): string {
   if (chartType === 'donut') chartJsType = 'doughnut';
   if (chartType === 'area') chartJsType = 'line';
   if (isHBar || chartType === 'bar_stacked') chartJsType = 'bar';
+  if (chartType === 'radar_area') chartJsType = 'radar';
 
   const datasetsJson = JSON.stringify(
     chartData.datasets.map((ds, i) => {

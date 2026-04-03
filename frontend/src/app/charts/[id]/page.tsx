@@ -29,6 +29,7 @@ const CHART_TYPE_OPTIONS = [
   { value: 'pie', label: '◕ Tarta' },
   { value: 'donut', label: '◎ Donut' },
   { value: 'radar', label: '✦ Radar' },
+  { value: 'radar_area', label: '✦ Radar área' },
   { value: 'table', label: '▤ Tabla' },
   { value: 'kpi', label: '# KPI' },
 ];

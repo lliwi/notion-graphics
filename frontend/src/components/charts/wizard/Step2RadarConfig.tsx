@@ -28,9 +28,9 @@ export default function Step2RadarConfig({
   onLabelFieldChange,
   onAxesChange,
 }: Props) {
-  const numericOptions = fieldOptions.filter(
-    (o) => o.value !== '' && NUMERIC_TYPES.has(getType(o.label)),
-  );
+  const axisOptions = fieldOptions.filter((o) => o.value !== '');
+
+  const isNumeric = (label: string) => NUMERIC_TYPES.has(getType(label));
 
   const toggleAxis = (fieldName: string) => {
     if (axes.includes(fieldName)) {
@@ -53,18 +53,19 @@ export default function Step2RadarConfig({
         <p className="text-xs font-semibold text-text-muted uppercase tracking-wider font-mono">
           Ejes del radar
           <span className="ml-1 text-text-muted/60 normal-case font-normal">
-            (mín. 3 campos numéricos)
+            (mín. 3 campos — los no numéricos usan conteo)
           </span>
         </p>
 
-        {numericOptions.length === 0 ? (
+        {axisOptions.length === 0 ? (
           <p className="text-sm text-text-muted italic py-2">
-            No se encontraron campos numéricos en esta base de datos.
+            No se encontraron campos en esta base de datos.
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {numericOptions.map((opt) => {
+            {axisOptions.map((opt) => {
               const checked = axes.includes(opt.value);
+              const numeric = isNumeric(opt.label);
               return (
                 <button
                   key={opt.value}
@@ -78,6 +79,9 @@ export default function Step2RadarConfig({
                 >
                   {checked && <span className="mr-1">✓</span>}
                   {opt.label}
+                  {!numeric && (
+                    <span className="ml-1 text-[10px] text-text-muted/50">conteo</span>
+                  )}
                 </button>
               );
             })}

@@ -17,8 +17,8 @@ interface Props {
 function buildDataset(data: ChartDataResult, config: ChartConfig, type: ChartType) {
   const colors = config.colors.length > 0 ? config.colors : DEFAULT_COLORS;
   const isPolar = type === 'pie' || type === 'donut';
-  const isRadar = type === 'radar';
-  const isArea = type === 'area';
+  const isRadar = type === 'radar' || type === 'radar_area';
+  const isArea = type === 'area' || type === 'radar_area';
   const isBar = type === 'bar' || type === 'bar_horizontal' || type === 'bar_stacked' || type === 'bar_horizontal_stacked';
   const isMultiDataset = data.datasets.length > 1;
   const borderRadius = config.border_radius ?? 4;
@@ -66,7 +66,7 @@ export default function ChartPreview({ type, data, config }: Props) {
 
   const colors = config.colors.length > 0 ? config.colors : DEFAULT_COLORS;
   const isPolar = type === 'pie' || type === 'donut';
-  const isRadar = type === 'radar';
+  const isRadar = type === 'radar' || type === 'radar_area';
   const isMultiDs = data.datasets.length > 1;
 
   const generateLabels = isPolar || isRadar || isMultiDs
@@ -181,6 +181,7 @@ export default function ChartPreview({ type, data, config }: Props) {
       {type === 'pie' && <Pie data={chartData} options={OPTIONS_BASE} />}
       {type === 'donut' && <Doughnut data={chartData} options={OPTIONS_BASE} />}
       {type === 'radar' && <Radar data={chartData} options={withRadarScales} />}
+      {type === 'radar_area' && <Radar data={chartData} options={withRadarScales} />}
     </div>
   );
 }
